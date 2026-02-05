@@ -136,3 +136,9 @@ django-debug-toolbar<6.0.0
 # Issue: https://github.com/openedx/edx-platform/issues/37435
 cryptography<46.0.0
 pact-python<3.0.0
+
+# Date 2026-02-05
+# sphinx-autoapi==3.6.1 is incompatible with astroid==4.x under python 3.11. Since we (2U) currently
+# deploy edxapp to edx.org using python 3.11, we must pin sphinx-autoapi to avoid dependency
+# conflicts. Remove this constraint once we migrate to python 3.12.
+sphinx-autoapi<3.6.1
