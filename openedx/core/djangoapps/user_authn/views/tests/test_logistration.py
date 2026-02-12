@@ -762,4 +762,3 @@ class AccountCreationTestCaseWithSiteOverrides(SiteMixin, TestCase):
         """
         response = self.client.get(reverse('signin_user'))
         self.assertNotContains(response, '<a class="btn-neutral" href="/register?next=%2Fdashboard">Register</a>')
-        
