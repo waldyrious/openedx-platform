@@ -38,6 +38,11 @@ from common.djangoapps.student.helpers import get_next_url_for_login_page
 from common.djangoapps.third_party_auth import pipeline
 from common.djangoapps.third_party_auth.decorators import xframe_allow_whitelisted
 from common.djangoapps.util.password_policy_validators import DEFAULT_MAX_PASSWORD_LENGTH
+from openedx.core.djangoapps.user_authn.toggles import (
+    should_redirect_to_authn_microfrontend,
+    is_require_third_party_auth_enabled,
+    ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN,
+)
 
 log = logging.getLogger(__name__)
 
@@ -202,18 +207,25 @@ def login_and_registration_form(request, initial_mode="login"):
 
     enterprise_customer = enterprise_customer_for_request(request)
 
-    if should_redirect_to_authn_microfrontend() and \
-            not enterprise_customer and \
-            not tpa_hint_provider and \
-            not saml_provider:
+    # Check for external providers (SAML/TPA) which must NEVER redirect to MFE
+    has_external_provider = bool(tpa_hint_provider or saml_provider)
+    # Determine eligibility by segment: B2C always eligible; B2B gated by waffle
+    if enterprise_customer:
+        is_segment_eligible = ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN.is_enabled(request)
+    else:
+        is_segment_eligible = True
 
+    # Execute redirection logic: redirect to AuthN MFE if globally enabled,
+    # segment is eligible, and no external provider is present
+
+    if should_redirect_to_authn_microfrontend() and is_segment_eligible and not has_external_provider:
         # This is to handle a case where a logged-in cookie is not present but the user is authenticated.
         # Note: If we don't handle this learner is redirected to authn MFE and then back to dashboard
         # instead of the desired redirect URL (e.g. finish_auth) resulting in learners not enrolling
         # into the courses.
         if request.user.is_authenticated and redirect_to:
             return redirect(redirect_to)
-
+            
         query_params = request.GET.urlencode()
         url_path = '/{}{}'.format(
             initial_mode,

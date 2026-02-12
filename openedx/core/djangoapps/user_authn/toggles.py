@@ -4,9 +4,26 @@ Toggles for user_authn
 
 
 from django.conf import settings
+from edx_toggles.toggles import WaffleFlag
 
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.theming.helpers import get_current_request
+
+# Namespace for user authentication toggles
+WAFFLE_FLAG_NAMESPACE = 'user_authn'
+
+# .. toggle_name: user_authn.enable_enterprise_redirect_to_authn
+# .. toggle_implementation: WaffleFlag
+# .. toggle_default: False
+# .. toggle_description: When enabled, Enterprise (B2B) users are redirected to the AuthN MFE like B2C users.
+# .. toggle_use_cases: open_edx
+# .. toggle_creation_date: 2025-02-11
+# .. toggle_warning: Only enable for Enterprise pilots; SAML/TPA flows remain on legacy.
+# Gating flag for Enterprise AuthN MFE rollout
+ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN = WaffleFlag(
+    f'{WAFFLE_FLAG_NAMESPACE}.enable_enterprise_redirect_to_authn',
+    __name__
+)
 
 
 def is_require_third_party_auth_enabled():
