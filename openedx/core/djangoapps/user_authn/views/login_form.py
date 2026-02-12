@@ -194,7 +194,7 @@ def login_and_registration_form(request, initial_mode="login"):
     saml_provider = False
     running_pipeline = pipeline.get(request)
     if running_pipeline:
-        saml_provider, __ = third_party_auth.utils.is_saml_provider(
+        saml_provider = third_party_auth.utils.is_saml_provider(
             running_pipeline.get('backend')
         )
 
