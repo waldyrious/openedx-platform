@@ -195,7 +195,7 @@ def login_and_registration_form(request, initial_mode="login"):
     running_pipeline = pipeline.get(request)
     if running_pipeline:
         saml_provider, __ = third_party_auth.utils.is_saml_provider(
-            running_pipeline.get('backend'), running_pipeline.get('kwargs')
+            running_pipeline.get('backend')
         )
 
     has_external_provider = bool(tpa_hint_provider or saml_provider)
