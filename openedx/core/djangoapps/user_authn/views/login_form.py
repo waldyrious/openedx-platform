@@ -194,7 +194,7 @@ def login_and_registration_form(request, initial_mode="login"):
     saml_provider = False
     running_pipeline = pipeline.get(request)
     if running_pipeline:
-        saml_provider = third_party_auth.utils.is_saml_provider(
+        saml_provider, __ = third_party_auth.utils.is_saml_provider(
             running_pipeline.get('backend'),
             running_pipeline.get('kwargs', {})
         )
@@ -206,7 +206,7 @@ def login_and_registration_form(request, initial_mode="login"):
     # Enterprise/B2B users: Eligible only when the specific rollout waffle flag is enabled
     enterprise_customer = enterprise_customer_for_request(request)
     if enterprise_customer:
-        is_segment_eligible = ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN.is_enabled(request)
+        is_segment_eligible = ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN.is_enabled()
     else:
         is_segment_eligible = True
 
