@@ -201,6 +201,10 @@ def login_and_registration_form(request, initial_mode="login"):
 
     has_external_provider = bool(tpa_hint_provider or saml_provider or running_pipeline)
 
+    # Ensure TPA hint disables redirect to AuthN MFE
+    if tpa_hint_provider:
+        has_external_provider = True
+
     # Determine eligibility based on user segment
     # B2C users: Always eligible when global AuthN MFE is enabled
     # Enterprise/B2B users: Eligible only when the specific rollout waffle flag is enabled
