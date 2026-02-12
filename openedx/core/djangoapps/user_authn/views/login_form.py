@@ -138,7 +138,7 @@ def get_login_session_form(request):
 )
 @ensure_csrf_cookie
 @xframe_allow_whitelisted
-def login_and_registration_form(request, initial_mode="login"): # noqa: R0915
+def login_and_registration_form(request, initial_mode="login"):  # noqa: R0915
     """Render the combined login/registration form, defaulting to login
 
     This relies on the JS to asynchronously load the actual form from
@@ -190,7 +190,7 @@ def login_and_registration_form(request, initial_mode="login"): # noqa: R0915
             log.exception("Unknown tpa_hint provider: %s", ex)
 
     # Also check redirect_to URL for tpa_hint (for nested next= URLs)
-    if not tpa_hint_provider and '?' in redirect_to:  # lint-amnesty, pylint: disable=too-many-nested-blocks
+    if not tpa_hint_provider and '?' in redirect_to:  #  lint-amnesty, pylint: disable=too-many-nested-blocks        
         try:
             next_args = urllib.parse.parse_qs(urllib.parse.urlparse(redirect_to).query)
             if 'tpa_hint' in next_args:
