@@ -224,8 +224,7 @@ def login_and_registration_form(request, initial_mode="login"):
         # instead of the desired redirect URL (e.g. finish_auth) resulting in learners not enrolling
         # into the courses.
         if request.user.is_authenticated and redirect_to:
-            return redirect(redirect_to)
-            
+            return redirect(redirect_to)        
         query_params = request.GET.urlencode()
         url_path = '/{}{}'.format(
             initial_mode,
