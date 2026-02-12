@@ -23,11 +23,14 @@ from openedx.core.djangoapps.user_api.accounts.utils import (
 )
 from openedx.core.djangoapps.user_api.helpers import FormDescription
 from openedx.core.djangoapps.user_authn.cookies import set_logged_in_cookies
-from openedx.core.djangoapps.user_authn.toggles import should_redirect_to_authn_microfrontend
+from openedx.core.djangoapps.user_authn.config.waffle import ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN
+from openedx.core.djangoapps.user_authn.toggles import (
+    should_redirect_to_authn_microfrontend,
+    is_require_third_party_auth_enabled,
+)
 from openedx.core.djangoapps.user_authn.views.password_reset import get_password_reset_form
 from openedx.core.djangoapps.user_authn.views.registration_form import RegistrationFormFactory
 from openedx.core.djangoapps.user_authn.views.utils import third_party_auth_context
-from openedx.core.djangoapps.user_authn.toggles import is_require_third_party_auth_enabled
 from openedx.features.enterprise_support.api import enterprise_customer_for_request, enterprise_enabled
 from openedx.features.enterprise_support.utils import (
     get_enterprise_slug_login_url,
@@ -38,11 +41,6 @@ from common.djangoapps.student.helpers import get_next_url_for_login_page
 from common.djangoapps.third_party_auth import pipeline
 from common.djangoapps.third_party_auth.decorators import xframe_allow_whitelisted
 from common.djangoapps.util.password_policy_validators import DEFAULT_MAX_PASSWORD_LENGTH
-from openedx.core.djangoapps.user_authn.toggles import (
-    should_redirect_to_authn_microfrontend,
-    is_require_third_party_auth_enabled,
-    ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN,
-)
 
 log = logging.getLogger(__name__)
 
@@ -191,13 +189,8 @@ def login_and_registration_form(request, initial_mode="login"):
         except (KeyError, ValueError, IndexError) as ex:
             log.exception("Unknown tpa_hint provider: %s", ex)
 
-    # Redirect to authn MFE if it is enabled
-    # AND
-    #   user is not an enterprise user
-    # AND
-    #   tpa_hint_provider is not available
-    # AND
-    #   user is not coming from a SAML IDP.
+    # Check for external providers (SAML/TPA) which must NEVER redirect to MFE
+    # These flows rely on legacy Django session/cookie handling
     saml_provider = False
     running_pipeline = pipeline.get(request)
     if running_pipeline:
@@ -205,26 +198,30 @@ def login_and_registration_form(request, initial_mode="login"):
             running_pipeline.get('backend'), running_pipeline.get('kwargs')
         )
 
-    enterprise_customer = enterprise_customer_for_request(request)
-
-    # Check for external providers (SAML/TPA) which must NEVER redirect to MFE
     has_external_provider = bool(tpa_hint_provider or saml_provider)
-    # Determine eligibility by segment: B2C always eligible; B2B gated by waffle
+
+    # Determine eligibility based on user segment
+    # B2C users: Always eligible when global AuthN MFE is enabled
+    # Enterprise/B2B users: Eligible only when the specific rollout waffle flag is enabled
+    enterprise_customer = enterprise_customer_for_request(request)
     if enterprise_customer:
-        is_segment_eligible = ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN.is_enabled(request)
+        is_segment_eligible = ENABLE_ENTERPRISE_REDIRECT_TO_AUTHN.is_enabled()
     else:
         is_segment_eligible = True
 
     # Execute redirection logic: redirect to AuthN MFE if globally enabled,
     # segment is eligible, and no external provider is present
+    if should_redirect_to_authn_microfrontend() and \
+            is_segment_eligible and \
+            not has_external_provider:
 
-    if should_redirect_to_authn_microfrontend() and is_segment_eligible and not has_external_provider:
         # This is to handle a case where a logged-in cookie is not present but the user is authenticated.
         # Note: If we don't handle this learner is redirected to authn MFE and then back to dashboard
         # instead of the desired redirect URL (e.g. finish_auth) resulting in learners not enrolling
         # into the courses.
         if request.user.is_authenticated and redirect_to:
-            return redirect(redirect_to)        
+            return redirect(redirect_to)
+
         query_params = request.GET.urlencode()
         url_path = '/{}{}'.format(
             initial_mode,
