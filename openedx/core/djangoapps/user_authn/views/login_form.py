@@ -146,40 +146,50 @@ def _handle_tpa_hint(request, redirect_to, initial_mode):
     """
     third_party_auth_hint = None
 
-    # Existing behavior: look for tpa_hint inside redirect_to (often nested in ?next=)
-    if "?" in redirect_to:
-        try:
-            next_args = urllib.parse.parse_qs(
-                urllib.parse.urlparse(redirect_to).query
+    # Early return if no query string in redirect_to
+    if "?" not in redirect_to:
+        return third_party_auth_hint, initial_mode, None
+
+    try:
+        next_args = urllib.parse.parse_qs(
+            urllib.parse.urlparse(redirect_to).query
+        )
+
+        # Early return if no tpa_hint in query params
+        if "tpa_hint" not in next_args:
+            return third_party_auth_hint, initial_mode, None
+
+        provider_id = next_args["tpa_hint"][0]
+        tpa_hint_provider = third_party_auth.provider.Registry.get(
+            provider_id=provider_id
+        )
+
+        # Early return if provider not found
+        if not tpa_hint_provider:
+            return third_party_auth_hint, initial_mode, None
+
+        # Handle skip_hinted_login_dialog
+        if tpa_hint_provider.skip_hinted_login_dialog:
+            auth_entry = (
+                pipeline.AUTH_ENTRY_REGISTER
+                if initial_mode == "register"
+                else pipeline.AUTH_ENTRY_LOGIN
             )
-            if "tpa_hint" in next_args:
-                provider_id = next_args["tpa_hint"][0]
-                tpa_hint_provider = third_party_auth.provider.Registry.get(
-                    provider_id=provider_id
+            redirect_response = redirect(
+                pipeline.get_login_url(
+                    provider_id,
+                    auth_entry,
+                    redirect_url=redirect_to,
                 )
-                if tpa_hint_provider:
-                    if tpa_hint_provider.skip_hinted_login_dialog:
-                        # Forward the user directly to the provider's login URL when
-                        # the provider is configured to skip the dialog.
-                        if initial_mode == "register":
-                            auth_entry = pipeline.AUTH_ENTRY_REGISTER
-                        else:
-                            auth_entry = pipeline.AUTH_ENTRY_LOGIN
-                        return (
-                            None,
-                            initial_mode,
-                            redirect(
-                                pipeline.get_login_url(
-                                    provider_id,
-                                    auth_entry,
-                                    redirect_url=redirect_to,
-                                )
-                            ),
-                        )
-                    third_party_auth_hint = provider_id
-                    initial_mode = "hinted_login"
-        except (KeyError, ValueError, IndexError) as ex:
-            log.exception("Unknown tpa_hint provider: %s", ex)
+            )
+            return None, initial_mode, redirect_response
+
+        # Set hint and mode for hinted login
+        third_party_auth_hint = provider_id
+        initial_mode = "hinted_login"
+
+    except (KeyError, ValueError, IndexError) as ex:
+        log.exception("Unknown tpa_hint provider: %s", ex)
 
     return third_party_auth_hint, initial_mode, None
 
