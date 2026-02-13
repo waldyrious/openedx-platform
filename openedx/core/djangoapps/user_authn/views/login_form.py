@@ -225,11 +225,15 @@ def _maybe_redirect_to_authn_mfe(request, initial_mode, redirect_to):
     if running_pipeline:
         backend_name = running_pipeline.get("backend")
         kwargs = running_pipeline.get("kwargs", {})
-        # is_saml_provider returns a tuple (bool, provider_name)
-        saml_provider, __ = third_party_auth.utils.is_saml_provider(
-            backend=backend_name,
-            kwargs=kwargs,
-        )
+        # Check if backend is SAML (either explicitly 'tpa-saml' or via provider registry)
+        if backend_name == 'tpa-saml':
+            saml_provider = True
+        else:
+            # Also check via provider registry (for configured SAML providers)
+            saml_provider, __ = third_party_auth.utils.is_saml_provider(
+                backend=backend_name,
+                kwargs=kwargs,
+            )
     # Check for TPA hint in request or redirect URL
     has_tpa_hint = _has_tpa_hint(request, redirect_to)
     # Treat ANY of these as external provider (hard stop for MFE redirect)
