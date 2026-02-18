@@ -197,9 +197,15 @@ def login_and_registration_form(request, initial_mode="login"):
     saml_provider = False
     running_pipeline = pipeline.get(request)
     if running_pipeline:
-        saml_provider, __ = third_party_auth.utils.is_saml_provider(
-            running_pipeline.get('backend'), running_pipeline.get('kwargs')
-        )
+        backend_name = running_pipeline.get('backend')
+        if backend_name == 'tpa-saml':
+            # Directly detect SAML backend to avoid registry lookup failures
+            # (e.g. when pipeline kwargs lack response['idp_name'] at this point).
+            saml_provider = True
+        else:
+            saml_provider, __ = third_party_auth.utils.is_saml_provider(
+                backend_name, running_pipeline.get('kwargs')
+            )
 
     enterprise_customer = enterprise_customer_for_request(request)
 
