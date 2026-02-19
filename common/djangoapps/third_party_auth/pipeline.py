@@ -102,7 +102,10 @@ from common.djangoapps.third_party_auth.utils import (
     is_saml_provider,
     user_exists,
 )
-from common.djangoapps.third_party_auth.toggles import is_tpa_next_url_on_dispatch_enabled
+from common.djangoapps.third_party_auth.toggles import (
+    is_saml_provider_site_fallback_enabled,
+    is_tpa_next_url_on_dispatch_enabled,
+)
 from common.djangoapps.track import segment
 from common.djangoapps.util.json_request import JsonResponse
 
@@ -360,7 +363,11 @@ def get_complete_url(backend_name):
         ValueError: if no provider is enabled with the given backend_name.
     """
     if not any(provider.Registry.get_enabled_by_backend_name(backend_name)):
-        raise ValueError('Provider with backend %s not enabled' % backend_name)
+        # When the SAML site-fallback flag is on, the provider may not be visible to the
+        # site-filtered registry even though SAML auth already completed via a
+        # site-independent lookup. Allow get_complete_url to proceed in that case.
+        if not (is_saml_provider_site_fallback_enabled() and backend_name == 'tpa-saml'):
+            raise ValueError('Provider with backend %s not enabled' % backend_name)
 
     return _get_url('social:complete', backend_name)
 
