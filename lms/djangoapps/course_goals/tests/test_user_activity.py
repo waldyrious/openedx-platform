@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import ddt
 from django.contrib.auth import get_user_model
 from django.test.client import RequestFactory
+from django.test.utils import override_settings
 from django.urls import reverse
 from edx_django_utils.cache import TieredCache
 from edx_toggles.toggles.testutils import override_waffle_flag
@@ -31,7 +32,7 @@ class UserActivityTests(UrlResetMixin, ModuleStoreTestCase):
     """
     Testing Course Goals User Activity
     """
-    @patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+    @override_settings(ENABLE_DISCUSSION_SERVICE=True)
     def setUp(self):
         super().setUp()
         self.course = CourseFactory.create(
@@ -168,7 +169,7 @@ class UserActivityTests(UrlResetMixin, ModuleStoreTestCase):
     def test_mobile_app_user_activity_calls(self, url):
         url = url.replace('{COURSE_ID}', str(self.course.id))
         with patch.object(UserActivity, 'record_user_activity') as record_user_activity_mock:
-            with patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True}):
+            with override_settings(ENABLE_DISCUSSION_SERVICE=True):
                 self.client.get(url)
                 record_user_activity_mock.assert_called_once()
 
