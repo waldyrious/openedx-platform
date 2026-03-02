@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import ddt
 from django.db import transaction
+from django.test.utils import override_settings
 from django.urls import reverse
 from edx_toggles.toggles.testutils import override_waffle_flag
 
@@ -235,7 +236,7 @@ class CourseHomeMetadataTests(BaseCourseHomeTests):
         response = self.client.get(self.url)
         self._assert_course_access_response(response, False, 'incorrect_active_enterprise')
 
-    @patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
+    @override_settings(ENABLE_DISCUSSION_SERVICE=True)
     @ddt.data(True, False)
     def test_discussion_tab_visible(self, visible):
         """
