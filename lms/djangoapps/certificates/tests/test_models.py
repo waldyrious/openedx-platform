@@ -7,7 +7,6 @@ from unittest import mock, skipUnless
 
 import ddt
 import pytest
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -43,9 +42,6 @@ from xmodule.modulestore.tests.factories import CourseFactory  # lint-amnesty, p
 
 ENROLLMENT_METHOD = 'common.djangoapps.student.models.course_enrollment.CourseEnrollment.enrollment_mode_for_user'
 PROFILE_METHOD = 'common.djangoapps.student.models_api.get_name'
-
-FEATURES_INVALID_FILE_PATH = settings.FEATURES.copy()
-FEATURES_INVALID_FILE_PATH['CERTS_HTML_VIEW_CONFIG_PATH'] = 'invalid/path/to/config.json'
 
 TEST_DIR = path(__file__).dirname()
 TEST_DATA_DIR = 'common/test/data/'
@@ -195,7 +191,6 @@ class CertificateHtmlViewConfigurationTest(TestCase, OpenEdxEventsTestMixin):
         self.config.save()
         assert len(self.config.get_config()) == 0
 
-    @override_settings(FEATURES=FEATURES_INVALID_FILE_PATH)
     def test_get_no_database_no_file(self):
         """
         Tests get configuration that is not enabled.
