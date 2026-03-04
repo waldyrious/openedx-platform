@@ -5,9 +5,9 @@ Test cases to cover account retirement views
 import datetime
 import json
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import ddt
-from zoneinfo import ZoneInfo
 from consent.models import DataSharingConsent
 from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.contrib.sites.models import Site
@@ -65,6 +65,7 @@ from openedx.core.djangoapps.credit.models import (
 )
 from openedx.core.djangoapps.external_user_ids.models import ExternalIdType
 from openedx.core.djangoapps.oauth_dispatch.jwt import create_jwt_for_user
+from openedx.core.djangoapps.oauth_dispatch.tests.factories import AccessTokenFactory, ApplicationFactory
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.djangoapps.user_api.accounts.views import AccountRetirementPartnerReportView
 from openedx.core.djangoapps.user_api.models import (
@@ -74,7 +75,6 @@ from openedx.core.djangoapps.user_api.models import (
     UserRetirementStatus
 )
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from openedx.core.djangoapps.oauth_dispatch.tests.factories import ApplicationFactory, AccessTokenFactory
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 
@@ -1463,9 +1463,7 @@ class TestAccountRetirementPost(RetirementTestCase):
 
         assert cache.get(self.cache_key) is None
 
-        self._data_sharing_consent_assertions()
         self._sapsf_audit_assertions()
-        self._pending_enterprise_customer_user_assertions()
         self._entitlement_support_detail_assertions()
 
         assert not PendingEmailChange.objects.filter(user=self.test_user).exists()
@@ -1520,17 +1518,24 @@ class TestAccountRetirementPost(RetirementTestCase):
         AccountRetirementView.delete_users_country_cache(self.test_user)
         assert cache.get(self.cache_key) is None
 
-    def test_can_retire_users_datasharingconsent(self):
-        AccountRetirementView.retire_users_data_sharing_consent(self.test_user.username, self.retired_username)
-        self._data_sharing_consent_assertions()
+    @mock.patch('openedx.core.djangoapps.user_api.accounts.views.USER_RETIRE_LMS_CRITICAL')
+    def test_retirement_sends_critical_signal_with_retirement_data(self, mock_signal):
+        """
+        USER_RETIRE_LMS_CRITICAL is sent with retired_username and retired_email kwargs.
+        """
+        data = {'username': self.original_username}
+        self.post_and_assert_status(data)
+
+        mock_signal.send.assert_called_once_with(
+            sender=mock_signal.send.call_args[1]['sender'],
+            user=mock_signal.send.call_args[1]['user'],
+            retired_username=self.retired_username,
+            retired_email=self.retired_email,
+        )
 
     def test_can_retire_users_sap_success_factors_audits(self):
         AccountRetirementView.retire_sapsf_data_transmission(self.test_user)
         self._sapsf_audit_assertions()
-
-    def test_can_retire_user_from_pendingenterprisecustomeruser(self):
-        AccountRetirementView.retire_user_from_pending_enterprise_customer_user(self.test_user, self.retired_email)
-        self._pending_enterprise_customer_user_assertions()
 
     def test_course_entitlement_support_detail_comments_are_retired(self):
         AccountRetirementView.retire_entitlement_support_detail(self.test_user)

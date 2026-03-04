@@ -8,9 +8,8 @@ https://openedx.atlassian.net/wiki/display/TNL/User+API
 import datetime
 import logging
 from functools import wraps
-
 from zoneinfo import ZoneInfo
-from consent.models import DataSharingConsent
+
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, logout
@@ -25,7 +24,7 @@ from edx_ace import ace
 from edx_ace.recipient import Recipient
 from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 from edx_rest_framework_extensions.auth.session.authentication import SessionAuthenticationAllowInactiveUser
-from enterprise.models import EnterpriseCourseEnrollment, EnterpriseCustomerUser, PendingEnterpriseCustomerUser
+from enterprise.models import EnterpriseCourseEnrollment, EnterpriseCustomerUser
 from integrated_channels.degreed.models import DegreedLearnerDataTransmissionAudit
 from integrated_channels.sap_success_factors.models import SapSuccessFactorsLearnerDataTransmissionAudit
 from rest_framework import permissions, status
@@ -39,7 +38,6 @@ from rest_framework.viewsets import ViewSet
 from wiki.models import ArticleRevision
 from wiki.models.pluginbase import RevisionPluginRevision
 
-from common.djangoapps.track import segment
 from common.djangoapps.entitlements.models import CourseEntitlement
 from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=unused-import
     CourseEnrollmentAllowed,
@@ -53,9 +51,10 @@ from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=
     get_retired_email_by_email,
     get_retired_username_by_username,
     is_email_retired,
-    is_username_retired,
+    is_username_retired
 )
 from common.djangoapps.student.models_api import confirm_name_change, do_name_change_request, get_pending_name_change
+from common.djangoapps.track import segment
 from lms.djangoapps.certificates.api import clear_pii_from_certificate_records_for_user
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.api_admin.models import ApiAccessRequest
@@ -78,7 +77,7 @@ from ..models import (
     RetirementStateError,
     UserOrgTag,
     UserRetirementPartnerReportingStatus,
-    UserRetirementStatus,
+    UserRetirementStatus
 )
 from .api import get_account_settings, update_account_settings
 from .permissions import (
@@ -86,13 +85,13 @@ from .permissions import (
     CanDeactivateUser,
     CanGetAccountInfo,
     CanReplaceUsername,
-    CanRetireUser,
+    CanRetireUser
 )
 from .serializers import (
     PendingNameChangeSerializer,
     UserRetirementPartnerReportSerializer,
     UserRetirementStatusSerializer,
-    UserSearchEmailSerializer,
+    UserSearchEmailSerializer
 )
 from .signals import USER_RETIRE_LMS_CRITICAL, USER_RETIRE_LMS_MISC, USER_RETIRE_MAILINGS
 from .utils import create_retirement_request_and_deactivate_account, username_suffix_generator
@@ -1154,11 +1153,8 @@ class AccountRetirementView(ViewSet):
             # Retire user information from any certificate records associated with the learner
             self.clear_pii_from_certificate_records(user)
 
-            # Retire data from Enterprise models
-            self.retire_users_data_sharing_consent(username, retired_username)
             self.retire_sapsf_data_transmission(user)
             self.retire_degreed_data_transmission(user)
-            self.retire_user_from_pending_enterprise_customer_user(user, retired_email)
             self.retire_entitlement_support_detail(user)
 
             # Retire misc. models that may contain PII of this user
@@ -1169,8 +1165,13 @@ class AccountRetirementView(ViewSet):
             CourseEnrollmentAllowed.delete_by_user_value(original_email, field="email")
             UnregisteredLearnerCohortAssignments.delete_by_user_value(original_email, field="email")
 
-            # This signal allows code in higher points of LMS to retire the user as necessary
-            USER_RETIRE_LMS_CRITICAL.send(sender=self.__class__, user=user)
+            # This signal allows plugins to retire enterprise-specific user data.
+            USER_RETIRE_LMS_CRITICAL.send(
+                sender=self.__class__,
+                user=user,
+                retired_username=retired_username,
+                retired_email=retired_email,
+            )
 
             user.first_name = ""
             user.last_name = ""
@@ -1210,10 +1211,6 @@ class AccountRetirementView(ViewSet):
         cache.delete(cache_key)
 
     @staticmethod
-    def retire_users_data_sharing_consent(username, retired_username):
-        DataSharingConsent.objects.filter(username=username).update(username=retired_username)
-
-    @staticmethod
     def retire_sapsf_data_transmission(user):  # lint-amnesty, pylint: disable=missing-function-docstring
         for ent_user in EnterpriseCustomerUser.objects.filter(user_id=user.id):
             for enrollment in EnterpriseCourseEnrollment.objects.filter(enterprise_customer_user=ent_user):
@@ -1230,10 +1227,6 @@ class AccountRetirementView(ViewSet):
                     enterprise_course_enrollment_id=enrollment.id
                 )
                 audits.update(degreed_user_email="")
-
-    @staticmethod
-    def retire_user_from_pending_enterprise_customer_user(user, retired_email):
-        PendingEnterpriseCustomerUser.objects.filter(user_email=user.email).update(user_email=retired_email)
 
     @staticmethod
     def retire_entitlement_support_detail(user):
@@ -1307,8 +1300,6 @@ class UsernameReplacementView(APIView):
         # (model_name, column_name)
         MODELS_WITH_USERNAME = (
             ("auth.user", "username"),
-            ("consent.DataSharingConsent", "username"),
-            ("consent.HistoricalDataSharingConsent", "username"),
             ("credit.CreditEligibility", "username"),
             ("credit.CreditRequest", "username"),
             ("credit.CreditRequirementStatus", "username"),
