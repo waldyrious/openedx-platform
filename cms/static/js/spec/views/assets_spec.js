@@ -1,6 +1,7 @@
-define(['jquery', 'edx-ui-toolkit/js/utils/spec-helpers/ajax-helpers', 'URI', 'js/views/assets',
+define(['jquery', 'sinon', 'edx-ui-toolkit/js/utils/spec-helpers/ajax-helpers', 'URI', 'js/views/assets',
     'js/collections/asset', 'common/js/spec_helpers/view_helpers'],
-function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
+function($, sinon, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
+    var requests, xhrFactory;
     describe('Assets', function() {
         var assetsView, mockEmptyAssetsResponse, mockAssetUploadResponse, mockFileUpload,
             assetLibraryTpl, assetTpl, uploadModalTpl;
@@ -10,6 +11,11 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
         uploadModalTpl = readFixtures('asset-upload-modal.underscore');
 
         beforeEach(function() {
+            xhrFactory = sinon.useFakeXMLHttpRequest();
+            requests = [];
+            requests.currentIndex = 0;
+            requests.restore = function() { xhrFactory.restore(); };
+            xhrFactory.onCreate = function(req) { requests.push(req); };
             setFixtures($('<script>', {id: 'asset-library-tpl', type: 'text/template'}).text(assetLibraryTpl));
             appendSetFixtures($('<script>', {id: 'asset-tpl', type: 'text/template'}).text(assetTpl));
             appendSetFixtures(uploadModalTpl);
@@ -31,6 +37,10 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
             });
 
             assetsView.render();
+        });
+
+        afterEach(function() {
+            requests.restore();
         });
 
         var mockAsset = {
@@ -143,7 +153,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
         describe('AssetsView', function() {
             var setup;
             setup = function(responseData) {
-                var requests = AjaxHelpers.requests(this);
                 assetsView.pagingView.setPage(1);
                 if (!responseData) {
                     AjaxHelpers.respondWithJson(requests, mockEmptyAssetsResponse);
@@ -274,7 +283,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
 
             it('make sure _toggleFilterColumn filters asset list', function() {
                 expect(assetsView).toBeDefined();
-                var requests = AjaxHelpers.requests(this);
                 $.each(assetsView.pagingView.filterableColumns, function(columnID, columnData) {
                     var $typeColumn = $('#' + columnID);
                     assetsView.pagingView.setPage(1);
@@ -306,7 +314,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
 
             it('check filtering works with sorting by column on', function() {
                 expect(assetsView).toBeDefined();
-                var requests = AjaxHelpers.requests(this);
                 assetsView.pagingView.registerSortableColumn('name-col', 'Name Column', 'nameField', 'asc');
                 assetsView.pagingView.registerFilterableColumn('js-asset-type-col', gettext('Type'), 'asset_type');
                 assetsView.pagingView.setInitialSortColumn('name-col');
@@ -323,7 +330,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
 
             it('shows type select menu, selects type, and filters results', function() {
                 expect(assetsView).toBeDefined();
-                var requests = AjaxHelpers.requests(this);
                 $.each(assetsView.pagingView.filterableColumns, function(columnID, columnData) {
                     assetsView.pagingView.setPage(1);
                     respondWithMockAssets(requests);
@@ -420,7 +426,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
                     };
 
                 it('can move forward a page using the next page button', function() {
-                    var requests = AjaxHelpers.requests(this);
                     assetsView.pagingView.setPage(1);
                     AjaxHelpers.respondWithJson(requests, firstPageAssets);
                     expect(assetsView.pagingView.pagingFooter).toBeDefined();
@@ -433,7 +438,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
                 });
 
                 it('can move back a page using the previous page button', function() {
-                    var requests = AjaxHelpers.requests(this);
                     assetsView.pagingView.setPage(2);
                     AjaxHelpers.respondWithJson(requests, secondPageAssets);
                     expect(assetsView.pagingView.pagingFooter).toBeDefined();
@@ -446,7 +450,6 @@ function($, AjaxHelpers, URI, AssetsView, AssetCollection, ViewHelpers) {
                 });
 
                 it('can set the current page using the page number input', function() {
-                    var requests = AjaxHelpers.requests(this);
                     assetsView.pagingView.setPage(1);
                     AjaxHelpers.respondWithJson(requests, firstPageAssets);
                     assetsView.pagingView.pagingFooter.$('#page-number-input').val('2');
