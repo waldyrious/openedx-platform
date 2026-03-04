@@ -64,15 +64,15 @@ import hmac
 import json
 from collections import OrderedDict
 from logging import getLogger
+from random import randint
 from smtplib import SMTPException
 from uuid import uuid4
-from random import randint
 
 import six
 import social_django
 from django.conf import settings
+from django.contrib.auth import REDIRECT_FIELD_NAME, logout
 from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
-from django.contrib.auth import logout, REDIRECT_FIELD_NAME
 from django.core.mail.message import EmailMessage
 from django.http import HttpResponseBadRequest
 from django.shortcuts import redirect
@@ -84,6 +84,14 @@ from social_core.utils import module_member, slugify
 
 from common.djangoapps import third_party_auth
 from common.djangoapps.edxmako.shortcuts import render_to_string
+from common.djangoapps.third_party_auth.utils import (
+    get_associated_user_by_email_response,
+    is_oauth_provider,
+    is_saml_provider,
+    user_exists
+)
+from common.djangoapps.track import segment
+from common.djangoapps.util.json_request import JsonResponse
 from lms.djangoapps.verify_student.models import SSOVerification
 from lms.djangoapps.verify_student.utils import earliest_allowed_verification_date
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
@@ -93,16 +101,6 @@ from openedx.core.djangoapps.user_authn import cookies as user_authn_cookies
 from openedx.core.djangoapps.user_authn.toggles import is_auto_generated_username_enabled
 from openedx.core.djangoapps.user_authn.utils import is_safe_login_or_logout_redirect
 from openedx.core.djangoapps.user_authn.views.utils import get_auto_generated_username
-from common.djangoapps.third_party_auth.utils import (
-    get_associated_user_by_email_response,
-    get_user_from_email,
-    is_enterprise_customer_user,
-    is_oauth_provider,
-    is_saml_provider,
-    user_exists,
-)
-from common.djangoapps.track import segment
-from common.djangoapps.util.json_request import JsonResponse
 
 from . import provider
 
@@ -790,71 +788,10 @@ def associate_by_email_if_saml(auth_entry, backend, details, user, strategy, *ar
 
     This association is done ONLY if the user entered the pipeline belongs to SAML provider.
     """
-    from openedx.features.enterprise_support.api import enterprise_is_enabled
-
-    def get_user():
-        """
-        This is the helper method to get the user from system by matching email.
-        """
-        user_details = {'email': details.get('email')} if details else None
-        return get_user_from_email(user_details or {})
-
-    @enterprise_is_enabled()
-    def associate_by_email_if_enterprise_user():
-        """
-        If the learner arriving via SAML is already linked to the enterprise customer linked to the same IdP,
-        they should not be prompted for their edX password.
-        """
-        try:
-            enterprise_customer_user = is_enterprise_customer_user(current_provider.provider_id, current_user)
-            logger.info(
-                '[Multiple_SSO_SAML_Accounts_Association_to_User] Enterprise user verification:'
-                'User Email: {email}, User ID: {user_id}, Provider ID: {provider_id},'
-                ' is_enterprise_customer_user: {enterprise_customer_user}'.format(
-                    email=current_user.email,
-                    user_id=current_user.id,
-                    provider_id=current_provider.provider_id,
-                    enterprise_customer_user=enterprise_customer_user,
-                )
-            )
-
-            if enterprise_customer_user:
-                # this is python social auth pipeline default method to automatically associate social accounts
-                # if the email already matches a user account.
-                association_response, user_is_active = get_associated_user_by_email_response(
-                    backend, details, user, *args, **kwargs)
-
-                if not user_is_active:
-                    logger.info(
-                        '[Multiple_SSO_SAML_Accounts_Association_to_User] User association account is not'
-                        ' active: User Email: {email}, User ID: {user_id}, Provider ID: {provider_id},'
-                        ' is_enterprise_customer_user: {enterprise_customer_user}'.format(
-                            email=current_user.email,
-                            user_id=current_user.id,
-                            provider_id=current_provider.provider_id,
-                            enterprise_customer_user=enterprise_customer_user
-                        )
-                    )
-                    return None
-
-                return association_response
-
-        except Exception as ex:  # pylint: disable=broad-except
-            logger.exception('[Multiple_SSO_SAML_Accounts_Association_to_User] Error in'
-                             ' saml multiple accounts association: User ID: %s, User Email: %s:,'
-                             'Provider ID: %s, Exception: %s', current_user.id, current_user.email,
-                             current_provider.provider_id, ex)
-
     saml_provider, current_provider = is_saml_provider(strategy.request.backend.name, kwargs)
 
     if saml_provider:
-        # get the user by matching email if the pipeline user is not available.
-        current_user = user if user else get_user()
-
-        # Verify that the user linked to enterprise customer of current identity provider and an active user
-        associate_response = associate_by_email_if_enterprise_user() if current_user else None
-        if associate_response:
-            return associate_response
+        return get_associated_user_by_email_response(backend, details, user, *args, **kwargs)
 
 
 def user_details_force_sync(auth_entry, strategy, details, user=None, *args, **kwargs):  # lint-amnesty, pylint: disable=keyword-arg-before-vararg

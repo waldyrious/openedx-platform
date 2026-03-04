@@ -8,15 +8,15 @@ from copy import deepcopy
 import requests
 from django.contrib.sites.models import Site
 from django.http import Http404
-from django.utils.functional import cached_property
 from django.utils.datastructures import MultiValueDictKeyError
+from django.utils.functional import cached_property
 from django_countries import countries
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 from social_core.backends.saml import OID_EDU_PERSON_ENTITLEMENT, SAMLAuth, SAMLIdentityProvider
-from social_core.exceptions import AuthForbidden, AuthMissingParameter, AuthInvalidParameter
+from social_core.exceptions import AuthForbidden, AuthInvalidParameter, AuthMissingParameter
 
-from openedx.core.djangoapps.theming.helpers import get_current_request
 from common.djangoapps.third_party_auth.exceptions import IncorrectConfigurationException
+from openedx.core.djangoapps.theming.helpers import get_current_request
 
 STANDARD_SAML_PROVIDER_KEY = 'standard_saml_provider'
 SAP_SUCCESSFACTORS_SAML_KEY = 'sap_success_factors'
@@ -141,12 +141,17 @@ class SAMLAuthBackend(SAMLAuth):  # pylint: disable=abstract-method
 
     def disconnect(self, *args, **kwargs):
         """
-        Override of SAMLAuth.disconnect to unlink the learner from enterprise customer if associated.
+        Override to emit a signal when a user disconnects their SAML account.
         """
-        from openedx.features.enterprise_support.api import unlink_enterprise_user_from_idp
-        user = kwargs.get('user', None)
-        unlink_enterprise_user_from_idp(self.strategy.request, user, self.name)
-        return super().disconnect(*args, **kwargs)
+        from common.djangoapps.third_party_auth.signals import SocialAuthAccountDisconnected
+        result = super().disconnect(*args, **kwargs)
+        SocialAuthAccountDisconnected.send(
+            sender=self.__class__,
+            request=self.strategy.request,
+            user=self.strategy.request.user if self.strategy.request else None,
+            social=self,
+        )
+        return result
 
     def _check_entitlements(self, idp, attributes):
         """

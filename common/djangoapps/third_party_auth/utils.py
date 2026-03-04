@@ -11,16 +11,12 @@ import dateutil.parser
 import requests
 from django.contrib.auth.models import User  # lint-amnesty, pylint: disable=imported-auth-user
 from django.utils.timezone import now
-from enterprise.models import EnterpriseCustomerIdentityProvider, EnterpriseCustomerUser
 from lxml import etree
 from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from requests import exceptions
 from social_core.pipeline.social_auth import associate_by_email
-from common.djangoapps.student.models import (
-    email_exists_or_retired,
-    username_exists_or_retired
-)
 
+from common.djangoapps.student.models import email_exists_or_retired, username_exists_or_retired
 from common.djangoapps.third_party_auth.models import OAuth2ProviderConfig, SAMLProviderData
 from openedx.core.djangolib.markup import Text
 
@@ -233,14 +229,6 @@ def is_saml_provider(backend, kwargs):
     saml_providers_list = list(provider.Registry.get_enabled_by_backend_name('tpa-saml'))
     return (current_provider and
             current_provider.slug in [saml_provider.slug for saml_provider in saml_providers_list]), current_provider
-
-
-def is_enterprise_customer_user(provider_id, user):
-    """ Verify that the user linked to enterprise customer of current identity provider"""
-    enterprise_idp = EnterpriseCustomerIdentityProvider.objects.get(provider_id=provider_id)
-
-    return EnterpriseCustomerUser.objects.filter(enterprise_customer=enterprise_idp.enterprise_customer,
-                                                 user_id=user.id).exists()
 
 
 def is_oauth_provider(backend_name, **kwargs):
