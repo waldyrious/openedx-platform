@@ -19,6 +19,7 @@ from openedx.core.djangoapps.notifications.base_notification import (
 )
 
 from openedx.core.djangoapps.notifications.email.tasks import send_immediate_cadence_email
+from openedx.core.djangoapps.notifications.email.tasks import schedule_user_digest_email
 from openedx.core.djangoapps.notifications.config.waffle import (
     ENABLE_PUSH_NOTIFICATIONS, DISABLE_NOTIFICATIONS
 )
@@ -120,6 +121,7 @@ def send_notifications(user_ids, course_key: str, app_name, notification_type, c
     default_web_config = get_default_values_of_preferences().get(notification_type, {}).get('web', False)
     generated_notification_audience = []
     email_notification_mapping = {}
+    digest_schedule_users = {}  # {user_id: cadence_type} for daily/weekly digest scheduling
     push_notification_audience = []
     is_push_notification_enabled = ENABLE_PUSH_NOTIFICATIONS.is_enabled(course_key)
     task_id = str(uuid.uuid4())
@@ -179,6 +181,9 @@ def send_notifications(user_ids, course_key: str, app_name, notification_type, c
                 if email_enabled and (email_cadence == EmailCadence.IMMEDIATELY):
                     email_notification_user_ids.append(user_id)
 
+                if email_enabled and email_cadence in (EmailCadence.DAILY, EmailCadence.WEEKLY):
+                    digest_schedule_users[user_id] = email_cadence
+
                 if push_notification:
                     push_notification_audience.append(user_id)
 
@@ -212,6 +217,20 @@ def send_notifications(user_ids, course_key: str, app_name, notification_type, c
             f"for notification {notification_type}",
         )
         send_immediate_cadence_email(email_notification_mapping, course_key)
+
+    # Schedule delayed digest emails for users with Daily/Weekly cadence
+    if digest_schedule_users:
+        logger.info(
+            f"Scheduling digest emails for {len(digest_schedule_users)} users "
+            f"for notification {notification_type}",
+        )
+        for uid, cadence in digest_schedule_users.items():
+            try:
+                schedule_user_digest_email(uid, cadence)
+            except Exception:  # pylint: disable=broad-except
+                logger.exception(
+                    f"Failed to schedule {cadence} digest email for user {uid}"
+                )
 
     if generated_notification:
         notification_generated_event(

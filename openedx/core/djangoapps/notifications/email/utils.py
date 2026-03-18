@@ -177,11 +177,12 @@ def get_start_end_date(cadence_type):
     """
     if cadence_type not in [EmailCadence.DAILY, EmailCadence.WEEKLY]:
         raise ValueError('Invalid cadence_type')
-    end_date = datetime.datetime.now()
+    from django.utils import timezone as django_timezone
+    end_date = django_timezone.now()
     start_date = end_date - datetime.timedelta(days=1, minutes=15)
     if cadence_type == EmailCadence.WEEKLY:
         start_date = start_date - datetime.timedelta(days=6)
-    return utc.localize(start_date), utc.localize(end_date)
+    return start_date, end_date
 
 
 def get_course_info(course_key):
