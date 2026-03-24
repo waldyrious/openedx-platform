@@ -327,7 +327,7 @@ def schedule_bulk_digest_emails(user_cadence_map):
 
         transaction.on_commit(
             lambda uids=new_user_ids, ctype=cadence_type, dtime=delivery_time:
-                _enqueue_bulk_digest_tasks(uids, ctype, dtime)
+            _enqueue_bulk_digest_tasks(uids, ctype, dtime)
         )
 
 
@@ -351,12 +351,6 @@ def send_user_digest_email_task(self, user_id, cadence_type):
             logger.info(f'<Digest Task> User {user.username} is disabled, skipping')
             _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
             return
-
-        if not is_email_notification_flag_enabled(user):
-            logger.info(f'<Digest Task> Email flag disabled for user {user.username}')
-            _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
-            return
-
         start_date, end_date = get_start_end_date(cadence_type)
 
         already_sent = Notification.objects.filter(

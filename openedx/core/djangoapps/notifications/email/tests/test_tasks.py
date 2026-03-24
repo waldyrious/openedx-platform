@@ -1287,8 +1287,7 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
             email_sent_on=None,
         )
 
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
+        schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         assert mock_apply_async.called
         call_kwargs = mock_apply_async.call_args[1]
@@ -1311,8 +1310,7 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
             task_id='existing-task-id',
         )
 
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
+        schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         assert not mock_apply_async.called
 
@@ -1320,8 +1318,7 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
     @patch('openedx.core.djangoapps.notifications.email.tasks.send_user_digest_email_task.apply_async')
     def test_invalid_cadence_does_not_schedule(self, mock_apply_async):
         """Test that IMMEDIATELY cadence does not schedule a digest."""
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({self.user.id: EmailCadence.IMMEDIATELY})
+        schedule_bulk_digest_emails({self.user.id: EmailCadence.IMMEDIATELY})
         assert not mock_apply_async.called
 
     @freeze_time("2026-03-06 10:00:00", tz_offset=0)
@@ -1344,8 +1341,7 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
             email_sent_on=None,
         )
 
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({self.user.id: EmailCadence.WEEKLY})
+        schedule_bulk_digest_emails({self.user.id: EmailCadence.WEEKLY})
 
         assert mock_apply_async.called
         call_kwargs = mock_apply_async.call_args[1]
@@ -1370,8 +1366,7 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
             email_sent_on=None,
         )
 
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
+        schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         notif.refresh_from_db()
         assert notif.email_scheduled is True
@@ -1392,8 +1387,7 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
             email_sent_on=None,
         )
 
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
+        schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         delivery_time = datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc)
         assert DigestSchedule.objects.filter(
@@ -1428,11 +1422,10 @@ class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
                 email_sent_on=None,
             )
 
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_bulk_digest_emails({
-                self.user.id: EmailCadence.DAILY,
-                user2.id: EmailCadence.DAILY,
-            })
+        schedule_bulk_digest_emails({
+            self.user.id: EmailCadence.DAILY,
+            user2.id: EmailCadence.DAILY,
+        })
 
         assert mock_apply_async.call_count == 2
         assert DigestSchedule.objects.count() == 2
@@ -1473,12 +1466,10 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             created=created_time,
         )
 
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                    user_id=self.user.id,
-                    cadence_type=EmailCadence.DAILY,
-                )
+        send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
+            user_id=self.user.id,
+            cadence_type=EmailCadence.DAILY,
+        )
 
         assert mock_ace_send.called
 
@@ -1500,12 +1491,10 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             created=created_time,
         )
 
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                    user_id=self.user.id,
-                    cadence_type=EmailCadence.DAILY,
-                )
+        send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
+            user_id=self.user.id,
+            cadence_type=EmailCadence.DAILY,
+        )
 
         assert not mock_ace_send.called
 
@@ -1532,12 +1521,10 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             task_id='test-task-id',
         )
 
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                    user_id=self.user.id,
-                    cadence_type=EmailCadence.DAILY,
-                )
+        send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
+            user_id=self.user.id,
+            cadence_type=EmailCadence.DAILY,
+        )
 
         notif.refresh_from_db()
         assert notif.email_scheduled is False
@@ -1568,13 +1555,10 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
             task_id='test-task-id',
         )
-
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                    user_id=self.user.id,
-                    cadence_type=EmailCadence.DAILY,
-                )
+        send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
+            user_id=self.user.id,
+            cadence_type=EmailCadence.DAILY,
+        )
 
         assert not mock_ace_send.called
         # Verify DigestSchedule was cleaned up even though user is disabled
@@ -1594,28 +1578,14 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
             task_id='orphan-task-id',
         )
-
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                # Should not raise
-                send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                    user_id=99999,
-                    cadence_type=EmailCadence.DAILY,
-                )
+        # Should not raise
+        send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
+            user_id=99999,
+            cadence_type=EmailCadence.DAILY,
+        )
 
         # Verify orphaned DigestSchedule was cleaned up
         assert not DigestSchedule.objects.filter(user_id=99999).exists()
-
-    @freeze_time("2026-03-06 17:00:00", tz_offset=0)
-    @patch('openedx.core.djangoapps.notifications.email.tasks.ace.send')
-    def test_skips_when_email_flag_disabled(self, mock_ace_send):
-        """Test that task skips when email notification flag is disabled."""
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, False):
-            send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                user_id=self.user.id,
-                cadence_type=EmailCadence.DAILY,
-            )
-        assert not mock_ace_send.called
 
     @freeze_time("2026-03-06 17:00:00", tz_offset=0)
     @patch('openedx.core.djangoapps.notifications.email.tasks.ace.send')
@@ -1640,13 +1610,10 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
             task_id='test-task-id',
         )
-
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
-                    user_id=self.user.id,
-                    cadence_type=EmailCadence.DAILY,
-                )
+        send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
+            user_id=self.user.id,
+            cadence_type=EmailCadence.DAILY,
+        )
 
         notif.refresh_from_db()
         assert notif.email_scheduled is False
@@ -1688,17 +1655,14 @@ class TestDigestSchedulingIntegration(ModuleStoreTestCase):
             'username': 'User',
             'post_title': 'Test Post'
         }
-
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_notifications(
-                    [self.user.id],
-                    str(self.course.id),
-                    'discussion',
-                    'new_discussion_post',
-                    context,
-                    'http://test.url'
-                )
+        send_notifications(
+            [self.user.id],
+            str(self.course.id),
+            'discussion',
+            'new_discussion_post',
+            context,
+            'http://test.url'
+        )
 
         # A digest task should have been scheduled
         assert mock_apply_async.called
@@ -1713,24 +1677,22 @@ class TestDigestSchedulingIntegration(ModuleStoreTestCase):
             'post_title': 'Test Post'
         }
 
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_notifications(
-                    [self.user.id],
-                    str(self.course.id),
-                    'discussion',
-                    'new_discussion_post',
-                    context.copy(),
-                    'http://test.url'
-                )
-                send_notifications(
-                    [self.user.id],
-                    str(self.course.id),
-                    'discussion',
-                    'new_discussion_post',
-                    context.copy(),
-                    'http://test.url'
-                )
+        send_notifications(
+            [self.user.id],
+            str(self.course.id),
+            'discussion',
+            'new_discussion_post',
+            context.copy(),
+            'http://test.url'
+        )
+        send_notifications(
+            [self.user.id],
+            str(self.course.id),
+            'discussion',
+            'new_discussion_post',
+            context.copy(),
+            'http://test.url'
+        )
 
         # Should be called only once because second time notifications are already scheduled
         assert mock_apply_async.call_count == 1
@@ -1755,16 +1717,14 @@ class TestDigestSchedulingIntegration(ModuleStoreTestCase):
             'post_title': 'Test Post'
         }
 
-        with override_waffle_flag(ENABLE_NOTIFICATIONS, True):
-            with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-                send_notifications(
-                    [self.user.id],
-                    str(self.course.id),
-                    'discussion',
-                    'new_discussion_post',
-                    context,
-                    'http://test.url'
-                )
+        send_notifications(
+            [self.user.id],
+            str(self.course.id),
+            'discussion',
+            'new_discussion_post',
+            context,
+            'http://test.url'
+        )
 
         # Immediate email should be sent, NOT a digest scheduled
         assert mock_ace_send.called
