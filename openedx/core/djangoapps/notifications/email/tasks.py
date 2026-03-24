@@ -235,102 +235,100 @@ def is_digest_already_sent_in_window(user_id, cadence_type, delivery_time):
     ).exists()
 
 
-def schedule_user_digest_email(user_id, cadence_type):
+def schedule_bulk_digest_emails(user_cadence_map):
     """
-    Schedule a delayed Celery task to send a digest email to a user.
+    Bulk-schedule delayed Celery tasks for digest emails for multiple users.
 
-    This is called when a notification is created for a user who has
-    Daily or Weekly email cadence. It:
-    1. Calculates the next delivery time based on settings
-    2. Checks if a digest task is already scheduled for this window
-    3. Marks the notification as scheduled
-    4. Schedules a delayed Celery task with apply_async(eta=...)
+    This avoids N+1 query issues when scheduling digests for many users at once
+    (e.g. during send_notifications) by batching DB operations.
 
-    The check-then-act logic is wrapped in a transaction to prevent
-    race conditions when multiple notifications arrive concurrently.
+    Runs ~3 queries per cadence type regardless of user count:
+    1. SELECT existing DigestSchedule records (1 query)
+    2. Bulk INSERT new DigestSchedule records (1 query)
+    3. Bulk UPDATE Notification.email_scheduled (1 query)
 
     Args:
-        user_id: ID of the user to send digest to
-        cadence_type: EmailCadence.DAILY or EmailCadence.WEEKLY
+        user_cadence_map: dict mapping user_id -> cadence_type
+            (EmailCadence.DAILY or EmailCadence.WEEKLY)
     """
-
-    user = User.objects.filter(id=user_id).first()
-    if user is None:
-        logger.warning(f'<Digest Schedule> User {user_id} not found; skipping digest scheduling')
-        return
-    if not is_email_notification_flag_enabled(user=user):
+    if not user_cadence_map:
         return
 
-    if cadence_type not in [EmailCadence.DAILY, EmailCadence.WEEKLY]:
-        logger.warning(f'<Digest Schedule> Invalid cadence_type {cadence_type} for user {user_id}')
-        return
+    # Group users by cadence type
+    cadence_groups = {}
+    for uid, cadence in user_cadence_map.items():
+        if cadence not in (EmailCadence.DAILY, EmailCadence.WEEKLY):
+            logger.warning(f'<Digest Schedule Bulk> Invalid cadence_type {cadence} for user {uid}')
+            continue
+        cadence_groups.setdefault(cadence, []).append(uid)
 
-    delivery_time = get_next_digest_delivery_time(cadence_type)
+    for cadence_type, user_ids in cadence_groups.items():
+        delivery_time = get_next_digest_delivery_time(cadence_type)
 
-    with transaction.atomic():
-
-        task_id = get_digest_dedupe_key(user_id, cadence_type, delivery_time)
-        _schedule, created = DigestSchedule.objects.get_or_create(
-            user_id=user_id,
-            cadence_type=cadence_type,
-            delivery_time=delivery_time,
-            defaults={'task_id': task_id},
+        # 1. Find users who already have a DigestSchedule for this window (1 query)
+        already_scheduled_user_ids = set(
+            DigestSchedule.objects.filter(
+                user_id__in=user_ids,
+                cadence_type=cadence_type,
+                delivery_time=delivery_time,
+            ).values_list('user_id', flat=True)
         )
 
-        if not created:
-            # Another worker already scheduled this window.
+        new_user_ids = [uid for uid in user_ids if uid not in already_scheduled_user_ids]
+        if not new_user_ids:
             logger.info(
-                f'<Digest Schedule> Digest already scheduled for user {user_id}, '
-                f'cadence={cadence_type}, delivery_time={delivery_time}'
+                f'<Digest Schedule Bulk> All {len(user_ids)} users already scheduled '
+                f'for cadence={cadence_type}, delivery_time={delivery_time}'
             )
-            return
+            continue
 
-        if is_digest_already_sent_in_window(user_id, cadence_type, delivery_time):
-            logger.info(
-                f'<Digest Schedule> Digest already sent for user {user_id} in this window, '
-                f'cadence={cadence_type}, delivery_time={delivery_time}'
+        # 2. Bulk create DigestSchedule records for new users (1 query)
+        new_schedules = [
+            DigestSchedule(
+                user_id=uid,
+                cadence_type=cadence_type,
+                delivery_time=delivery_time,
+                task_id=get_digest_dedupe_key(uid, cadence_type, delivery_time),
             )
-            # Remove the record we just created — no task needed.
-            _schedule.delete()
-            return
+            for uid in new_user_ids
+        ]
+        DigestSchedule.objects.bulk_create(new_schedules, ignore_conflicts=True)
 
-        # Mark unscheduled notifications for this user as scheduled.
-
+        # 3. Bulk mark unscheduled notifications as scheduled (1 query)
         if cadence_type == EmailCadence.DAILY:
             window_start = delivery_time - timedelta(days=1)
         else:
             window_start = delivery_time - timedelta(days=7)
 
-        updated = Notification.objects.filter(
-            user_id=user_id,
+        Notification.objects.filter(
+            user_id__in=new_user_ids,
             email=True,
             email_scheduled=False,
             email_sent_on__isnull=True,
             created__gte=window_start,
         ).update(email_scheduled=True)
 
-        if updated == 0:
+        # 4. Enqueue Celery tasks for each new user (no DB queries)
+        def _enqueue_bulk_digest_tasks(uids, ctype, dtime):
+            for uid in uids:
+                task_id = get_digest_dedupe_key(uid, ctype, dtime)
+                send_user_digest_email_task.apply_async(
+                    kwargs={
+                        'user_id': uid,
+                        'cadence_type': ctype,
+                    },
+                    eta=dtime,
+                    task_id=task_id,
+                )
             logger.info(
-                f'<Digest Schedule> No unsent notifications to schedule for user {user_id}'
+                f'<Digest Schedule Bulk> Scheduled {ctype} digest for {len(uids)} users '
+                f'at {dtime}'
             )
-            # Remove the record — nothing to deliver.
-            _schedule.delete()
-            return
 
-        def _enqueue_user_digest_email_task():
-            send_user_digest_email_task.apply_async(
-                kwargs={
-                    'user_id': user_id,
-                    'cadence_type': cadence_type,
-                },
-                eta=delivery_time,
-                task_id=task_id,
-            )
-            logger.info(
-                f'<Digest Schedule> Scheduled {cadence_type} digest for user {user_id} '
-                f'at {delivery_time} (task_id={task_id})'
-            )
-    transaction.on_commit(_enqueue_user_digest_email_task)
+        transaction.on_commit(
+            lambda uids=new_user_ids, ctype=cadence_type, dtime=delivery_time:
+                _enqueue_bulk_digest_tasks(uids, ctype, dtime)
+        )
 
 
 @shared_task(bind=True, ignore_result=True, max_retries=3, default_retry_delay=300)

@@ -19,7 +19,7 @@ from openedx.core.djangoapps.notifications.base_notification import (
 )
 
 from openedx.core.djangoapps.notifications.email.tasks import send_immediate_cadence_email
-from openedx.core.djangoapps.notifications.email.tasks import schedule_user_digest_email
+from openedx.core.djangoapps.notifications.email.tasks import schedule_bulk_digest_emails
 from openedx.core.djangoapps.notifications.config.waffle import (
     ENABLE_PUSH_NOTIFICATIONS, DISABLE_NOTIFICATIONS
 )
@@ -224,13 +224,12 @@ def send_notifications(user_ids, course_key: str, app_name, notification_type, c
             f"Scheduling digest emails for {len(digest_schedule_users)} users "
             f"for notification {notification_type}",
         )
-        for uid, cadence in digest_schedule_users.items():
-            try:
-                schedule_user_digest_email(uid, cadence)
-            except Exception:  # pylint: disable=broad-except
-                logger.exception(
-                    f"Failed to schedule {cadence} digest email for user {uid}"
-                )
+        try:
+            schedule_bulk_digest_emails(digest_schedule_users)
+        except Exception:  # pylint: disable=broad-except
+            logger.exception(
+                f"Failed to bulk schedule digest emails for {len(digest_schedule_users)} users"
+            )
 
     if generated_notification:
         notification_generated_event(

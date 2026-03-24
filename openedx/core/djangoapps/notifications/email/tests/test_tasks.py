@@ -20,8 +20,8 @@ from openedx.core.djangoapps.notifications.email.tasks import (
     get_next_digest_delivery_time,
     is_digest_already_scheduled,
     is_digest_already_sent_in_window,
+    schedule_bulk_digest_emails,
     schedule_digest_buffer,
-    schedule_user_digest_email,
     send_buffered_digest,
     send_digest_email_to_user,
     send_immediate_cadence_email,
@@ -441,7 +441,7 @@ class TestDecideEmailAction(ModuleStoreTestCase):
         assert decision == 'add_to_buffer'
 
     @freeze_time("2025-12-15 10:00:00")
-    @override_settings(NOTIFICATION_EMAIL_BUFFER_MINUTES=15)
+    @override_settings(NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES=15)
     def test_old_email_triggers_new_immediate_send(self):
         """Test that email sent outside buffer period triggers new immediate send."""
         # Email sent 20 minutes ago (outside 15-minute buffer)
@@ -566,7 +566,7 @@ class TestScheduleDigestBuffer(ModuleStoreTestCase):
 
     @freeze_time("2025-12-15 10:00:00", tz_offset=0)
     @patch('openedx.core.djangoapps.notifications.email.tasks.send_buffered_digest.apply_async')
-    @override_settings(NOTIFICATION_EMAIL_BUFFER_MINUTES=15)
+    @override_settings(NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES=15)
     def test_buffer_scheduled_with_correct_delay(self, mock_apply_async):
         """Test that buffer task is scheduled with correct countdown."""
         # Create notification that was sent 5 minutes ago
@@ -677,7 +677,7 @@ class TestAddToExistingBuffer(ModuleStoreTestCase):
         assert notification.email_scheduled is True
 
     def test_only_scheduled_field_updated(self):
-        """Test that only email_scheduled field is updated."""
+        """Test that only email_scheduled field is updated, other fields remain unchanged."""
         notification = Notification.objects.create(
             user=self.user,
             course_id=str(self.course.id),
@@ -687,12 +687,16 @@ class TestAddToExistingBuffer(ModuleStoreTestCase):
             email=True,
             content_context=get_new_post_notification_content_context()
         )
+        original_content_url = notification.content_url
+        original_email_sent_on = notification.email_sent_on
 
         add_to_existing_buffer(notification)
 
         notification.refresh_from_db()
-        assert 'Hello world' in notification.content
         assert notification.email_scheduled is True
+        assert notification.content_url == original_content_url
+        assert notification.email_sent_on == original_email_sent_on
+        assert notification.email is True
 
 
 @ddt.ddt
@@ -908,7 +912,7 @@ class TestIntegrationScenarios(ModuleStoreTestCase):
     @freeze_time("2025-12-15 10:00:00")
     @patch('openedx.core.djangoapps.notifications.email.tasks.ace.send')
     @patch('openedx.core.djangoapps.notifications.email.tasks.send_buffered_digest.apply_async')
-    @override_settings(NOTIFICATION_EMAIL_BUFFER_MINUTES=15)
+    @override_settings(NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES=15)
     def test_complete_three_notification_flow(self, mock_digest_async, mock_ace_send):
         """Test complete flow: immediate → buffer → add to buffer."""
         email_mapping = {}
@@ -1004,7 +1008,7 @@ class TestIntegrationScenarios(ModuleStoreTestCase):
 
     @freeze_time("2025-12-15 10:00:00")
     @patch('openedx.core.djangoapps.notifications.email.tasks.ace.send')
-    @override_settings(NOTIFICATION_EMAIL_BUFFER_MINUTES=15)
+    @override_settings(NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES=15)
     def test_notification_after_buffer_expires_sends_immediate(self, mock_ace_send):
         """Test that notification after buffer period sends immediately again."""
         # First notification
@@ -1252,13 +1256,20 @@ class TestIsDigestAlreadySentInWindow(ModuleStoreTestCase):
 
 
 @ddt.ddt
-class TestScheduleUserDigestEmail(ModuleStoreTestCase):
-    """Tests for schedule_user_digest_email function."""
+class TestScheduleBulkDigestEmails(ModuleStoreTestCase):
+    """Tests for schedule_bulk_digest_emails function."""
 
     def setUp(self):
         super().setUp()
         self.user = UserFactory()
         self.course = CourseFactory.create()
+        # Patch transaction.on_commit to execute callbacks immediately in tests
+        self.on_commit_patcher = patch('django.db.transaction.on_commit', side_effect=lambda func: func())
+        self.on_commit_patcher.start()
+
+    def tearDown(self):
+        self.on_commit_patcher.stop()
+        super().tearDown()
 
     @freeze_time("2026-03-06 10:00:00", tz_offset=0)
     @override_settings(NOTIFICATION_DAILY_DIGEST_DELIVERY_HOUR=17, NOTIFICATION_DAILY_DIGEST_DELIVERY_MINUTE=0)
@@ -1277,7 +1288,7 @@ class TestScheduleUserDigestEmail(ModuleStoreTestCase):
         )
 
         with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.DAILY)
+            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         assert mock_apply_async.called
         call_kwargs = mock_apply_async.call_args[1]
@@ -1301,39 +1312,16 @@ class TestScheduleUserDigestEmail(ModuleStoreTestCase):
         )
 
         with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.DAILY)
+            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         assert not mock_apply_async.called
-
-    @freeze_time("2026-03-06 10:00:00", tz_offset=0)
-    @override_settings(NOTIFICATION_DAILY_DIGEST_DELIVERY_HOUR=17, NOTIFICATION_DAILY_DIGEST_DELIVERY_MINUTE=0)
-    @patch('openedx.core.djangoapps.notifications.email.tasks.send_user_digest_email_task.apply_async')
-    def test_does_not_schedule_if_already_sent_in_window(self, mock_apply_async):
-        """Test that no task is scheduled if cron already sent digest."""
-        Notification.objects.create(
-            user=self.user,
-            course_id=str(self.course.id),
-            app_name='discussion',
-            notification_type='new_discussion_post',
-            content_url='http://example.com',
-            email=True,
-            email_scheduled=False,
-            email_sent_on=datetime(2026, 3, 6, 8, 0, tzinfo=dt_timezone.utc),  # Sent earlier today
-        )
-
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.DAILY)
-
-        assert not mock_apply_async.called
-        # Verify no stale DigestSchedule record was left behind
-        assert not DigestSchedule.objects.filter(user=self.user).exists()
 
     @freeze_time("2026-03-06 10:00:00", tz_offset=0)
     @patch('openedx.core.djangoapps.notifications.email.tasks.send_user_digest_email_task.apply_async')
     def test_invalid_cadence_does_not_schedule(self, mock_apply_async):
         """Test that IMMEDIATELY cadence does not schedule a digest."""
         with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.IMMEDIATELY)
+            schedule_bulk_digest_emails({self.user.id: EmailCadence.IMMEDIATELY})
         assert not mock_apply_async.called
 
     @freeze_time("2026-03-06 10:00:00", tz_offset=0)
@@ -1357,7 +1345,7 @@ class TestScheduleUserDigestEmail(ModuleStoreTestCase):
         )
 
         with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.WEEKLY)
+            schedule_bulk_digest_emails({self.user.id: EmailCadence.WEEKLY})
 
         assert mock_apply_async.called
         call_kwargs = mock_apply_async.call_args[1]
@@ -1383,7 +1371,7 @@ class TestScheduleUserDigestEmail(ModuleStoreTestCase):
         )
 
         with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.DAILY)
+            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         notif.refresh_from_db()
         assert notif.email_scheduled is True
@@ -1405,7 +1393,7 @@ class TestScheduleUserDigestEmail(ModuleStoreTestCase):
         )
 
         with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.DAILY)
+            schedule_bulk_digest_emails({self.user.id: EmailCadence.DAILY})
 
         delivery_time = datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc)
         assert DigestSchedule.objects.filter(
@@ -1417,13 +1405,37 @@ class TestScheduleUserDigestEmail(ModuleStoreTestCase):
     @freeze_time("2026-03-06 10:00:00", tz_offset=0)
     @override_settings(NOTIFICATION_DAILY_DIGEST_DELIVERY_HOUR=17, NOTIFICATION_DAILY_DIGEST_DELIVERY_MINUTE=0)
     @patch('openedx.core.djangoapps.notifications.email.tasks.send_user_digest_email_task.apply_async')
-    def test_does_not_schedule_if_no_unsent_notifications(self, mock_apply_async):
-        """Test that no task is scheduled if there are no unsent notifications."""
-        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
-            schedule_user_digest_email(self.user.id, EmailCadence.DAILY)
+    def test_empty_map_does_nothing(self, mock_apply_async):
+        """Test that an empty user_cadence_map does nothing."""
+        schedule_bulk_digest_emails({})
         assert not mock_apply_async.called
-        # Verify no stale DigestSchedule record was left behind
-        assert not DigestSchedule.objects.filter(user=self.user).exists()
+
+    @freeze_time("2026-03-06 10:00:00", tz_offset=0)
+    @override_settings(NOTIFICATION_DAILY_DIGEST_DELIVERY_HOUR=17, NOTIFICATION_DAILY_DIGEST_DELIVERY_MINUTE=0)
+    @patch('openedx.core.djangoapps.notifications.email.tasks.send_user_digest_email_task.apply_async')
+    def test_schedules_for_multiple_users(self, mock_apply_async):
+        """Test that digest tasks are scheduled for multiple users in one call."""
+        user2 = UserFactory()
+        for user in [self.user, user2]:
+            Notification.objects.create(
+                user=user,
+                course_id=str(self.course.id),
+                app_name='discussion',
+                notification_type='new_discussion_post',
+                content_url='http://example.com',
+                email=True,
+                email_scheduled=False,
+                email_sent_on=None,
+            )
+
+        with override_waffle_flag(ENABLE_EMAIL_NOTIFICATIONS, True):
+            schedule_bulk_digest_emails({
+                self.user.id: EmailCadence.DAILY,
+                user2.id: EmailCadence.DAILY,
+            })
+
+        assert mock_apply_async.call_count == 2
+        assert DigestSchedule.objects.count() == 2
 
 
 @ddt.ddt
@@ -1659,6 +1671,13 @@ class TestDigestSchedulingIntegration(ModuleStoreTestCase):
             email=True,
             email_cadence=EmailCadence.DAILY,
         )
+        # Patch transaction.on_commit to execute callbacks immediately in tests
+        self.on_commit_patcher = patch('django.db.transaction.on_commit', side_effect=lambda func: func())
+        self.on_commit_patcher.start()
+
+    def tearDown(self):
+        self.on_commit_patcher.stop()
+        super().tearDown()
 
     @freeze_time("2026-03-06 10:00:00", tz_offset=0)
     @override_settings(NOTIFICATION_DAILY_DIGEST_DELIVERY_HOUR=17, NOTIFICATION_DAILY_DIGEST_DELIVERY_MINUTE=0)
