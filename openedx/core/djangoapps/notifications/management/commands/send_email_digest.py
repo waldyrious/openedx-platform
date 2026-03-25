@@ -52,4 +52,3 @@ class Command(BaseCommand):
                 "automatically. Please remove cron jobs using this command."
             )
         )
-        return
