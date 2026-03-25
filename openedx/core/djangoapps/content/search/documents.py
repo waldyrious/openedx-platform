@@ -543,7 +543,7 @@ def searchable_doc_for_collection(
         pass
 
     if collection:
-        assert collection.key == collection_key.collection_id
+        assert collection.collection_code == collection_key.collection_id
 
         draft_num_children = content_api.filter_publishable_entities(
             collection.entities,
@@ -558,7 +558,7 @@ def searchable_doc_for_collection(
             Fields.context_key: str(collection_key.context_key),
             Fields.org: str(collection_key.org),
             Fields.usage_key: str(collection_key),
-            Fields.block_id: collection.key,
+            Fields.block_id: collection.collection_code,
             Fields.type: DocType.collection,
             Fields.display_name: collection.title,
             Fields.description: collection.description,

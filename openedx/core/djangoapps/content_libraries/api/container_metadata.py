@@ -4,6 +4,7 @@ Content libraries data classes related to Containers.
 
 from __future__ import annotations
 
+import typing as t
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from django.db.models import QuerySet
@@ -25,7 +26,7 @@ from openedx.core.djangoapps.xblock.api import get_component_from_usage_key
 
 from ..models import ContentLibrary
 from .exceptions import ContentLibraryBlockNotFound, ContentLibraryContainerNotFound
-from .libraries import PublishableItem, library_component_usage_key
+from .libraries import PublishableItem, library_component_usage_key, CollectionMetadata
 
 # The public API is only the following symbols:
 __all__ = [
@@ -73,7 +74,9 @@ class ContainerMetadata(PublishableItem):
     container_pk: int
 
     @classmethod
-    def from_container(cls, library_key, container: Container, associated_collections=None):
+    def from_container(
+        cls, library_key, container: Container, associated_collections: list[CollectionMetadata] | None = None
+    ) -> t.Self:
         """
         Construct a ContainerMetadata object from a Container object.
         """

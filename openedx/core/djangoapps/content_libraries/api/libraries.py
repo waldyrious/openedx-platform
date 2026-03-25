@@ -180,7 +180,7 @@ class CollectionMetadata:
     """
     Class to represent collection metadata in a content library.
     """
-    key: str
+    collection_code: str
     title: str
 
 

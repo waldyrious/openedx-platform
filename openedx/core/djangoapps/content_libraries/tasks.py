@@ -259,7 +259,7 @@ def send_events_after_revert(draft_change_log_id: int, library_key_str: str) -> 
         ):
             collection_key = api.library_collection_locator(
                 library_key=library_key,
-                collection_key=parent_collection.key,
+                collection_key=parent_collection.collection_code,
             )
             affected_collection_keys.add(collection_key)
 

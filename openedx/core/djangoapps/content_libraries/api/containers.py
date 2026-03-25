@@ -79,7 +79,7 @@ def get_container(
         associated_collections = content_api.get_entity_collections(
             container.publishable_entity.learning_package_id,
             container_key.container_id,
-        ).values("key", "title")
+        ).values("collection_code", "title")
     else:
         associated_collections = None
     container_meta = ContainerMetadata.from_container(
@@ -235,7 +235,7 @@ def delete_container(
             library_collection=LibraryCollectionData(
                 collection_key=library_collection_locator(
                     library_key=library_key,
-                    collection_key=collection.key,
+                    collection_key=collection.collection_code,
                 ),
                 background=True,
             )
@@ -319,7 +319,7 @@ def restore_container(container_key: LibraryContainerLocator) -> None:
             library_collection=LibraryCollectionData(
                 collection_key=library_collection_locator(
                     library_key=library_key,
-                    collection_key=collection.key,
+                    collection_key=collection.collection_code,
                 ),
             )
         )

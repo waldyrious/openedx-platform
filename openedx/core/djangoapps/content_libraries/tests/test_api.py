@@ -342,7 +342,7 @@ class ContentLibraryCollectionsTest(ContentLibrariesRestApiTest):
             description="Description for Collection 4",
             created_by=self.user.id,
         )
-        assert collection.key == "COL4"
+        assert collection.collection_code == "COL4"
         assert collection.title == "Collection 4"
         assert collection.description == "Description for Collection 4"
         assert collection.created_by == self.user

@@ -2,13 +2,18 @@
 Content libraries data classes related to XBlocks/Components.
 """
 from __future__ import annotations
+
+import typing as t
 from dataclasses import dataclass
 
 from django.utils.translation import gettext as _
 from opaque_keys.edx.locator import LibraryUsageLocatorV2
+from openedx_content.models_api import Component
+
 from .libraries import (
     library_component_usage_key,
     PublishableItem,
+    CollectionMetadata,
 )
 
 # The public API is only the following symbols:
@@ -26,7 +31,9 @@ class LibraryXBlockMetadata(PublishableItem):
     usage_key: LibraryUsageLocatorV2
 
     @classmethod
-    def from_component(cls, library_key, component, associated_collections=None):
+    def from_component(
+        cls, library_key, component: Component, associated_collections: list[CollectionMetadata] | None = None
+    ) -> t.Self:
         """
         Construct a LibraryXBlockMetadata from a Component object.
         """

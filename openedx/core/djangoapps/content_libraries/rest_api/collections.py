@@ -34,7 +34,7 @@ class LibraryCollectionsView(ModelViewSet):
     """
 
     serializer_class = ContentLibraryCollectionSerializer
-    lookup_field = 'key'
+    lookup_field = 'collection_code'
 
     def __init__(self, *args, **kwargs) -> None:
         """
@@ -154,7 +154,7 @@ class LibraryCollectionsView(ModelViewSet):
             request.user,
             authz_permissions.EDIT_LIBRARY_COLLECTION
         )
-        collection_key = kwargs["key"]
+        collection_key = kwargs["collection_code"]
 
         update_serializer = ContentLibraryCollectionUpdateSerializer(
             data=request.data, partial=True
@@ -185,7 +185,7 @@ class LibraryCollectionsView(ModelViewSet):
         assert collection.learning_package_id
         content_api.delete_collection(
             collection.learning_package_id,
-            collection.key,
+            collection.collection_code,
             hard_delete=False,
         )
         return Response(None, status=HTTP_204_NO_CONTENT)
@@ -203,7 +203,7 @@ class LibraryCollectionsView(ModelViewSet):
             authz_permissions.EDIT_LIBRARY_COLLECTION
         )
         assert content_library.learning_package_id
-        collection_key = kwargs["key"]
+        collection_key = kwargs["collection_code"]
         content_api.restore_collection(
             content_library.learning_package_id,
             collection_key,
@@ -224,7 +224,7 @@ class LibraryCollectionsView(ModelViewSet):
             request.user,
             authz_permissions.EDIT_LIBRARY_COLLECTION
         )
-        collection_key = kwargs["key"]
+        collection_key = kwargs["collection_code"]
 
         serializer = ContentLibraryItemKeysSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

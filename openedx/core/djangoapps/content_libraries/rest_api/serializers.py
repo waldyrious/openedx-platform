@@ -132,7 +132,8 @@ class CollectionMetadataSerializer(serializers.Serializer):
     """
     Serializer for CollectionMetadata
     """
-    key = serializers.CharField()
+    collection_code = serializers.CharField()
+    key = serializers.CharField(source="collection_code")  # back-compat
     title = serializers.CharField()
 
 
