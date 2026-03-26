@@ -87,8 +87,13 @@ def send_digest_email_to_user(
         logger.info(f'<Email Cadence> User is disabled {user.username} ==Temp Log==')
         return
 
-    notifications = Notification.objects.filter(user=user, email=True,
-                                                created__gte=start_date, created__lte=end_date)
+    notifications = Notification.objects.filter(
+        user=user,
+        email=True,
+        created__gte=start_date,
+        created__lte=end_date,
+        email_sent_on__isnull=True,
+    )
     if not notifications:
         logger.info(f'<Email Cadence> No notification for {user.username} ==Temp Log==')
         return
@@ -339,17 +344,27 @@ def send_user_digest_email_task(self, user_id, cadence_type):
 
     This task is scheduled with apply_async(eta=...) for the configured
     delivery time. When it fires:
-    1. Checks if email was already sent (by cron job) to avoid duplicates
-    2. Gathers all unsent notifications for the cadence window
-    3. Sends the digest email
-    4. Marks notifications as sent
+    1. Atomically claims the DigestSchedule record (prevents duplicate
+       execution from Redis visibility-timeout redeliveries)
+    2. Checks if email was already sent (by cron job) to avoid duplicates
+    3. Gathers all unsent notifications for the cadence window
+    4. Sends the digest email
+    5. Marks notifications as sent
     """
     try:
+        claimed = _claim_digest_schedule(user_id, cadence_type)
+        if not claimed:
+            logger.info(
+                f'<Digest Task> Duplicate task for user {user_id}, '
+                f'cadence {cadence_type} — DigestSchedule already '
+                f'claimed by another task. Skipping.'
+            )
+            return
+
         user = User.objects.get(id=user_id)
 
         if not user.has_usable_password():
             logger.info(f'<Digest Task> User {user.username} is disabled, skipping')
-            _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
             return
         start_date, end_date = get_start_end_date(cadence_type)
 
@@ -373,7 +388,6 @@ def send_user_digest_email_task(self, user_id, cadence_type):
                 created__gte=start_date,
                 created__lte=end_date,
             ).update(email_scheduled=False)
-            _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
             return
 
         language_prefs = get_language_preference_for_users([user_id])
@@ -395,16 +409,10 @@ def send_user_digest_email_task(self, user_id, cadence_type):
             created__lte=end_date,
         ).update(email_scheduled=False)
 
-        # Remove only the current window's DigestSchedule record — future
-        # windows that may have been scheduled concurrently must be preserved.
-        _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
-
         logger.info(f'<Digest Task> Successfully sent {cadence_type} digest to user {user.username}')
 
     except User.DoesNotExist:
         logger.error(f'<Digest Task> User {user_id} not found')
-        # Clean up the orphaned DigestSchedule so future windows are not blocked.
-        _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
 
     except Exception as exc:
         current_retries = getattr(self.request, "retries", 0)
@@ -412,37 +420,40 @@ def send_user_digest_email_task(self, user_id, cadence_type):
         if max_retries and current_retries >= max_retries - 1:
             logger.error(
                 f'<Digest Task> Giving up sending {cadence_type} digest to user {user_id} '
-                f'after {current_retries} retries; cleaning up current window DigestSchedule.'
+                f'after {current_retries} retries.'
             )
-            _cleanup_digest_schedule_for_current_window(user_id, cadence_type)
             return
         retry_countdown = 300 * (2 ** current_retries)
         raise self.retry(exc=exc, countdown=retry_countdown)
 
 
-def _cleanup_digest_schedule_for_current_window(user_id, cadence_type):
+def _claim_digest_schedule(user_id, cadence_type):
     """
-    Remove DigestSchedule records only for the current delivery window.
+    Atomically claim (delete) the DigestSchedule record for the current
+    delivery window.
 
-    This ensures that a future window's DigestSchedule (created when a new
-    notification arrives after the current task was scheduled) is preserved.
+    Returns ``True`` if this call deleted the row (we are the rightful
+    owner). Returns ``False`` if the row was already gone (another copy
+    of the redelivered task got there first).
     """
     now = django_timezone.now()
 
     if cadence_type == EmailCadence.DAILY:
-        # The current window's delivery_time is at most 1 day + buffer in the past
         window_cutoff = now - timedelta(days=1, hours=1)
     elif cadence_type == EmailCadence.WEEKLY:
         window_cutoff = now - timedelta(days=7, hours=1)
     else:
-        return
+        return True  # non-digest cadences don't use DigestSchedule
 
-    DigestSchedule.objects.filter(
-        user_id=user_id,
-        cadence_type=cadence_type,
-        delivery_time__lte=now,
-        delivery_time__gte=window_cutoff,
-    ).delete()
+    with transaction.atomic():
+        rows_deleted, _ = DigestSchedule.objects.filter(
+            user_id=user_id,
+            cadence_type=cadence_type,
+            delivery_time__lte=now,
+            delivery_time__gte=window_cutoff,
+        ).delete()
+
+    return rows_deleted > 0
 
 
 def send_immediate_cadence_email(email_notification_mapping, course_key):

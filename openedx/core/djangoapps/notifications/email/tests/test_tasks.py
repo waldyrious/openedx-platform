@@ -14,7 +14,7 @@ from freezegun import freeze_time
 
 from common.djangoapps.student.tests.factories import UserFactory
 from openedx.core.djangoapps.notifications.email.tasks import (
-    _cleanup_digest_schedule_for_current_window,
+    _claim_digest_schedule,
     add_to_existing_buffer,
     decide_email_action,
     get_next_digest_delivery_time,
@@ -1465,6 +1465,12 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             email_scheduled=True,
             created=created_time,
         )
+        DigestSchedule.objects.create(
+            user=self.user,
+            cadence_type=EmailCadence.DAILY,
+            delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
+            task_id='test-task-id',
+        )
 
         send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
             user_id=self.user.id,
@@ -1489,6 +1495,12 @@ class TestSendUserDigestEmailTask(ModuleStoreTestCase):
             email_scheduled=True,
             email_sent_on=datetime(2026, 3, 6, 15, 0, tzinfo=dt_timezone.utc),  # Already sent by cron
             created=created_time,
+        )
+        DigestSchedule.objects.create(
+            user=self.user,
+            cadence_type=EmailCadence.DAILY,
+            delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
+            task_id='test-task-id',
         )
 
         send_user_digest_email_task(  # pylint: disable=no-value-for-parameter
@@ -1758,16 +1770,16 @@ class TestGetNextDigestDeliveryTimeSettingsValidation(ModuleStoreTestCase):
 
 
 @ddt.ddt
-class TestCleanupDigestScheduleForCurrentWindow(ModuleStoreTestCase):
-    """Tests for _cleanup_digest_schedule_for_current_window."""
+class TestClaimDigestSchedule(ModuleStoreTestCase):
+    """Tests for _claim_digest_schedule."""
 
     def setUp(self):
         super().setUp()
         self.user = UserFactory()
 
     @freeze_time("2026-03-06 17:00:00", tz_offset=0)
-    def test_cleans_up_current_window_record(self):
-        """Test that the current window's DigestSchedule record is deleted."""
+    def test_claims_current_window_record(self):
+        """Test that the current window's DigestSchedule record is deleted and returns True."""
         DigestSchedule.objects.create(
             user=self.user,
             cadence_type=EmailCadence.DAILY,
@@ -1775,8 +1787,9 @@ class TestCleanupDigestScheduleForCurrentWindow(ModuleStoreTestCase):
             task_id='current-task-id',
         )
 
-        _cleanup_digest_schedule_for_current_window(self.user.id, EmailCadence.DAILY)
+        result = _claim_digest_schedule(self.user.id, EmailCadence.DAILY)
 
+        assert result is True
         assert not DigestSchedule.objects.filter(
             user=self.user,
             cadence_type=EmailCadence.DAILY,
@@ -1784,16 +1797,30 @@ class TestCleanupDigestScheduleForCurrentWindow(ModuleStoreTestCase):
         ).exists()
 
     @freeze_time("2026-03-06 17:00:00", tz_offset=0)
-    def test_preserves_future_window_record(self):
-        """Test that a future window's DigestSchedule record is NOT deleted."""
-        # Current window record (should be deleted)
+    def test_second_claim_returns_false(self):
+        """Test that a second claim attempt returns False (dedup)."""
         DigestSchedule.objects.create(
             user=self.user,
             cadence_type=EmailCadence.DAILY,
             delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
             task_id='current-task-id',
         )
-        # Future window record (should be preserved)
+
+        first = _claim_digest_schedule(self.user.id, EmailCadence.DAILY)
+        second = _claim_digest_schedule(self.user.id, EmailCadence.DAILY)
+
+        assert first is True
+        assert second is False
+
+    @freeze_time("2026-03-06 17:00:00", tz_offset=0)
+    def test_preserves_future_window_record(self):
+        """Test that a future window's DigestSchedule record is NOT deleted."""
+        DigestSchedule.objects.create(
+            user=self.user,
+            cadence_type=EmailCadence.DAILY,
+            delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
+            task_id='current-task-id',
+        )
         DigestSchedule.objects.create(
             user=self.user,
             cadence_type=EmailCadence.DAILY,
@@ -1801,15 +1828,14 @@ class TestCleanupDigestScheduleForCurrentWindow(ModuleStoreTestCase):
             task_id='future-task-id',
         )
 
-        _cleanup_digest_schedule_for_current_window(self.user.id, EmailCadence.DAILY)
+        result = _claim_digest_schedule(self.user.id, EmailCadence.DAILY)
 
-        # Current record deleted
+        assert result is True
         assert not DigestSchedule.objects.filter(
             user=self.user,
             cadence_type=EmailCadence.DAILY,
             delivery_time=datetime(2026, 3, 6, 17, 0, tzinfo=dt_timezone.utc),
         ).exists()
-        # Future record preserved
         assert DigestSchedule.objects.filter(
             user=self.user,
             cadence_type=EmailCadence.DAILY,
@@ -1819,14 +1845,12 @@ class TestCleanupDigestScheduleForCurrentWindow(ModuleStoreTestCase):
     @freeze_time("2026-03-09 17:00:00", tz_offset=0)
     def test_weekly_preserves_future_record(self):
         """Test that weekly cleanup preserves next week's record."""
-        # Current week's record (should be deleted)
         DigestSchedule.objects.create(
             user=self.user,
             cadence_type=EmailCadence.WEEKLY,
             delivery_time=datetime(2026, 3, 9, 17, 0, tzinfo=dt_timezone.utc),
             task_id='current-task-id',
         )
-        # Next week's record (should be preserved)
         DigestSchedule.objects.create(
             user=self.user,
             cadence_type=EmailCadence.WEEKLY,
@@ -1834,8 +1858,9 @@ class TestCleanupDigestScheduleForCurrentWindow(ModuleStoreTestCase):
             task_id='next-week-task-id',
         )
 
-        _cleanup_digest_schedule_for_current_window(self.user.id, EmailCadence.WEEKLY)
+        result = _claim_digest_schedule(self.user.id, EmailCadence.WEEKLY)
 
+        assert result is True
         assert not DigestSchedule.objects.filter(
             user=self.user,
             delivery_time=datetime(2026, 3, 9, 17, 0, tzinfo=dt_timezone.utc),
