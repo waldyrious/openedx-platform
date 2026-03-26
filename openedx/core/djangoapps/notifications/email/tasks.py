@@ -267,6 +267,22 @@ def schedule_bulk_digest_emails(user_cadence_map):
             continue
         cadence_groups.setdefault(cadence, []).append(uid)
 
+    def _enqueue_bulk_digest_tasks(uids, ctype, dtime):
+        for uid in uids:
+            task_id = get_digest_dedupe_key(uid, ctype, dtime)
+            send_user_digest_email_task.apply_async(
+                kwargs={
+                    'user_id': uid,
+                    'cadence_type': ctype,
+                },
+                eta=dtime,
+                task_id=task_id,
+            )
+        logger.info(
+            f'<Digest Schedule Bulk> Scheduled {ctype} digest for {len(uids)} users '
+            f'at {dtime}'
+        )
+
     for cadence_type, user_ids in cadence_groups.items():
         delivery_time = get_next_digest_delivery_time(cadence_type)
 
@@ -314,22 +330,6 @@ def schedule_bulk_digest_emails(user_cadence_map):
         ).update(email_scheduled=True)
 
         # 4. Enqueue Celery tasks for each new user (no DB queries)
-        def _enqueue_bulk_digest_tasks(uids, ctype, dtime):
-            for uid in uids:
-                task_id = get_digest_dedupe_key(uid, ctype, dtime)
-                send_user_digest_email_task.apply_async(
-                    kwargs={
-                        'user_id': uid,
-                        'cadence_type': ctype,
-                    },
-                    eta=dtime,
-                    task_id=task_id,
-                )
-            logger.info(
-                f'<Digest Schedule Bulk> Scheduled {ctype} digest for {len(uids)} users '
-                f'at {dtime}'
-            )
-
         transaction.on_commit(
             lambda uids=new_user_ids, ctype=cadence_type, dtime=delivery_time:
             _enqueue_bulk_digest_tasks(uids, ctype, dtime)
