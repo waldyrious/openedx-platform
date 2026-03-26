@@ -1,4 +1,3 @@
-CELERYBEAT_SCHEDULE = {}  # For scheduling tasks, entries can be added to this dict
 """
 This is the common settings file, intended to set sane defaults.
 
@@ -41,6 +40,7 @@ Conventions
 # and throws spurious errors. Therefore, we disable invalid-name checking.
 # pylint: disable=invalid-name
 
+import os
 
 from corsheaders.defaults import default_headers as corsheaders_default_headers
 from path import Path as path

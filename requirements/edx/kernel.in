@@ -33,6 +33,7 @@ cryptography                        # Implementations of assorted cryptography a
 defusedxml
 Django                              # Web application framework
 django-autocomplete-light           # Enhances Django admin with single-select autocomplete dropdowns for a better user experience.
+django-celery-results               # Only used for the CacheBackend for celery results
 django-config-models                # Configuration models for Django allowing config management with auditing
 django-cors-headers                 # Used to allow to configure CORS headers for cross-domain requests
 django-countries                    # Country data for Django forms and model fields
