@@ -114,7 +114,7 @@ class MongoContentStore(ContentStore):
             self.close_connections()
 
     def save(self, content):
-        content_id, content_son = self.asset_db_key(content.location)
+        content_id, content_son = self.asset_db_key(content.usage_key)
 
         # The way to version files in gridFS is to not use the file id as the _id but just as the filename.
         # Then you can upload as many versions as you like and access by date or version. Because we use
@@ -122,7 +122,7 @@ class MongoContentStore(ContentStore):
         self.delete(content_id)  # delete is a noop if the entry doesn't exist; so, don't waste time checking
 
         thumbnail_location = content.thumbnail_location.to_deprecated_list_repr() if content.thumbnail_location else None  # lint-amnesty, pylint: disable=line-too-long
-        with self.fs.new_file(_id=content_id, filename=str(content.location), content_type=content.content_type,  # lint-amnesty, pylint: disable=line-too-long
+        with self.fs.new_file(_id=content_id, filename=str(content.usage_key), content_type=content.content_type,  # lint-amnesty, pylint: disable=line-too-long
                               displayname=content.name, content_son=content_son,
                               thumbnail_location=thumbnail_location,
                               import_path=content.import_path,

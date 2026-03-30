@@ -188,7 +188,7 @@ def _get_asset_usage_path(course_key, assets):
                     if handout and asset_key_string in handout:
                         usage_dict = {'display_location': '', 'url': ''}
                         xblock_display_name = getattr(block, 'display_name', '')
-                        xblock_location = str(block.location)
+                        xblock_location = str(block.usage_key)
                         unit = block.get_parent()
                         unit_location = str(block.parent)
                         unit_display_name = getattr(unit, 'display_name', '')
@@ -204,7 +204,7 @@ def _get_asset_usage_path(course_key, assets):
                     if static_path in data or asset_key_string in data:
                         usage_dict = {'display_location': '', 'url': ''}
                         xblock_display_name = getattr(block, 'display_name', '')
-                        xblock_location = str(block.location)
+                        xblock_location = str(block.usage_key)
                         unit = block.get_parent()
                         unit_location = str(block.parent)
                         unit_display_name = getattr(unit, 'display_name', '')
@@ -544,7 +544,7 @@ def update_course_run_asset(course_key, upload_file):
         content.thumbnail_location = thumbnail_location
 
     contentstore().save(content)
-    del_cached_content(content.location)
+    del_cached_content(content.usage_key)
 
     return content
 
@@ -574,7 +574,7 @@ def _upload_asset(request, course_key):
         return JsonResponse({'error': str(exception)}, status=413)
 
     # readback the saved content - we need the database timestamp
-    readback = contentstore().find(content.location)
+    readback = contentstore().find(content.usage_key)
     locked = getattr(content, 'locked', False)
     length = getattr(content, 'length', None)
     return JsonResponse({
@@ -582,7 +582,7 @@ def _upload_asset(request, course_key):
             content.name,
             content.content_type,
             readback.last_modified_at,
-            content.location,
+            content.usage_key,
             content.thumbnail_location,
             locked,
             course_key,
@@ -725,7 +725,7 @@ def delete_asset(course_key, asset_key):
 
     _delete_thumbnail(content.thumbnail_location, course_key, asset_key)
     contentstore().delete(content.get_id())
-    del_cached_content(content.location)
+    del_cached_content(content.usage_key)
 
 
 def _check_existence_and_get_asset_content(asset_key):  # lint-amnesty, pylint: disable=missing-function-docstring

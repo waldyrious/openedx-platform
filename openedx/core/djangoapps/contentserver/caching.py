@@ -19,7 +19,7 @@ def set_cached_content(content):
     """
     Stores the given piece of content in the cache, using its location as the key.
     """
-    CONTENT_CACHE.set(str(content.location).encode("utf-8"), content, version=STATIC_CONTENT_VERSION)
+    CONTENT_CACHE.set(str(content.usage_key).encode("utf-8"), content, version=STATIC_CONTENT_VERSION)
 
 
 def get_cached_content(location):
