@@ -475,16 +475,16 @@ class ImportTestCase(CourseTestCase):
         )
         # Refresh library.
         library = self.store.get_library(lib_key)
-        children = [self.store.get_item(child).url_name for child in library.children]
+        children = [self.store.get_item(child).usage_key.block_id for child in library.children]
         self.assertEqual(len(children), 2)
-        self.assertIn(test_block.url_name, children)
-        self.assertIn(test_block2.url_name, children)
+        self.assertIn(test_block.usage_key.block_id, children)
+        self.assertIn(test_block2.usage_key.block_id, children)
 
         unchanged_lib = self.store.get_library(unchanged_key)
-        children = [self.store.get_item(child).url_name for child in unchanged_lib.children]
+        children = [self.store.get_item(child).usage_key.block_id for child in unchanged_lib.children]
         self.assertEqual(len(children), 2)
-        self.assertIn(test_block3.url_name, children)
-        self.assertIn(test_block4.url_name, children)
+        self.assertIn(test_block3.usage_key.block_id, children)
+        self.assertIn(test_block4.usage_key.block_id, children)
 
         extract_dir = path(tempfile.mkdtemp(dir=settings.DATA_DIR))
         # the extract_dir needs to be passed as a relative dir to
@@ -507,16 +507,16 @@ class ImportTestCase(CourseTestCase):
 
         self.assertEqual(lib_key, library_items[0].location.library_key)
         library = self.store.get_library(lib_key)
-        children = [self.store.get_item(child).url_name for child in library.children]
+        children = [self.store.get_item(child).usage_key.block_id for child in library.children]
         self.assertEqual(len(children), 3)
-        self.assertNotIn(test_block.url_name, children)
-        self.assertNotIn(test_block2.url_name, children)
+        self.assertNotIn(test_block.usage_key.block_id, children)
+        self.assertNotIn(test_block2.usage_key.block_id, children)
 
         unchanged_lib = self.store.get_library(unchanged_key)
-        children = [self.store.get_item(child).url_name for child in unchanged_lib.children]
+        children = [self.store.get_item(child).usage_key.block_id for child in unchanged_lib.children]
         self.assertEqual(len(children), 2)
-        self.assertIn(test_block3.url_name, children)
-        self.assertIn(test_block4.url_name, children)
+        self.assertIn(test_block3.usage_key.block_id, children)
+        self.assertIn(test_block4.usage_key.block_id, children)
 
     @ddt.data(
         ModuleStoreEnum.Branch.draft_preferred,
@@ -910,7 +910,7 @@ class ExportTestCase(CourseTestCase):
             publish_item=False,
             youtube_id_1_0=youtube_id
         )
-        name = library.url_name
+        name = library.usage_key.block_id
         lib_key = library.location.library_key
         root_dir = path(tempfile.mkdtemp())
         try:
@@ -921,8 +921,8 @@ class ExportTestCase(CourseTestCase):
                 self.assertEqual(lib_xml.get('library'), lib_key.library)
                 block = lib_xml.find('video')
                 self.assertIsNotNone(block)
-                self.assertEqual(block.get('url_name'), video_block.url_name)
-            with open(root_dir / name / 'video' / video_block.url_name + '.xml') as xml_block:
+                self.assertEqual(block.get('url_name'), video_block.usage_key.block_id)
+            with open(root_dir / name / 'video' / video_block.usage_key.block_id + '.xml') as xml_block:
                 video_xml = lxml.etree.XML(xml_block.read())
                 self.assertEqual(video_xml.tag, 'video')
                 self.assertEqual(video_xml.get('youtube_id_1_0'), youtube_id)
@@ -1101,7 +1101,7 @@ class TestLibraryImportExport(CourseTestCase):
         )
 
         source_library = self.store.get_library(source_library1_key)
-        self.assertEqual(source_library.url_name, 'library')
+        self.assertEqual(source_library.usage_key.block_id, 'library')
 
         # Import the exported library into a different content library.
         import_library_from_xml(

@@ -82,7 +82,7 @@ class XBlockSerializer:
             # Handles a weird case where url_name is not part of olx.attrib even if it is
             # set in block. Known case is with openassessment blocks.
             if "url_name" not in olx.attrib and hasattr(block, "url_name"):
-                olx.attrib['url_name'] = block.url_name
+                olx.attrib['url_name'] = block.usage_key.block_id
         else:
             # The url_name attribute can come either because it was already in the
             # block's field data, or because this class adds it in the calls above.

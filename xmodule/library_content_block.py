@@ -168,7 +168,7 @@ class LegacyLibraryContentBlock(ItemBankMixin, XModuleToXBlockMixin, XBlock):
                 fragment.add_content(self.runtime.service(self, 'mako').render_cms_template(
                     "library-block-author-preview-header.html", {
                         'max_count': max_count,
-                        'display_name': self.display_name or self.url_name,
+                        'display_name': self.display_name or self.usage_key.block_id,
                     }))
                 context['can_edit_visibility'] = False
                 context['can_move'] = False

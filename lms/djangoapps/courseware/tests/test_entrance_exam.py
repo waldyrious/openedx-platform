@@ -217,7 +217,7 @@ class EntranceExamTestCases(LoginEnrollmentTestCase, ModuleStoreTestCase, Milest
         test get entrance exam content method
         """
         exam_chapter = get_entrance_exam_content(self.request.user, self.course)
-        assert exam_chapter.url_name == self.entrance_exam.url_name
+        assert exam_chapter.usage_key.block_id == self.entrance_exam.usage_key.block_id
         assert not user_has_passed_entrance_exam(self.request.user, self.course)
 
         answer_entrance_exam_problem(self.course, self.request, self.problem_1)
@@ -350,8 +350,8 @@ class EntranceExamTestCases(LoginEnrollmentTestCase, ModuleStoreTestCase, Milest
             self.request.user,
             self.request,
             self.course,
-            self.entrance_exam.url_name,
-            self.exam_1.url_name,
+            self.entrance_exam.usage_key.block_id,
+            self.exam_1.usage_key.block_id,
             self.field_data_cache
         )
         return toc['chapters']

@@ -123,6 +123,6 @@ def topic_name_to_id(course, name):
     """
     return "{course}_{run}_{name}".format(
         course=course.location.course,
-        run=course.url_name,
+        run=course.usage_key.block_id,
         name=name
     )

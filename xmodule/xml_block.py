@@ -495,7 +495,7 @@ class XmlMixin:
                         " This could mean data loss!!!",
                         attr,
                         val,
-                        self.url_name,
+                        self.usage_key.block_id,
                     )
 
         for key, value in self.xml_attributes.items():
@@ -504,7 +504,7 @@ class XmlMixin:
 
         if self.export_to_file():
             # Write the definition to a file
-            url_path = name_to_pathname(self.url_name)
+            url_path = name_to_pathname(self.usage_key.block_id)
             # if folder is course then create file with name {course_run}.xml
             filepath = self._format_filepath(
                 self.category,
@@ -524,7 +524,7 @@ class XmlMixin:
 
         # Do not override an existing value for the course.
         if not node.get("url_name"):
-            node.set("url_name", self.url_name)
+            node.set("url_name", self.usage_key.block_id)
 
         # Special case for course pointers:
         if self.category == "course":

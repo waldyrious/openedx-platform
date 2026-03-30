@@ -313,8 +313,8 @@ class OutlineFromModuleStoreTestCase(ModuleStoreTestCase):
             )
 
         outline, _errs = get_outline_from_modulestore(self.course_key)
-        assert outline.sections[0].title == section.url_name
-        assert outline.sections[0].sequences[0].title == sequence.url_name
+        assert outline.sections[0].title == section.usage_key.block_id
+        assert outline.sections[0].sequences[0].title == sequence.usage_key.block_id
 
     def test_empty_user_partition_groups(self):
         """

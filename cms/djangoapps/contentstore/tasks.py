@@ -407,7 +407,7 @@ def create_export_tarball(course_block, course_key, context, status=None):
 
     Updates the context with any error information if applicable.
     """
-    name = course_block.url_name
+    name = course_block.usage_key.block_id
     export_file = NamedTemporaryFile(prefix=name + '.',
                                      suffix=".tar.gz")  # lint-amnesty, pylint: disable=consider-using-with
     root_dir = path(mkdtemp())

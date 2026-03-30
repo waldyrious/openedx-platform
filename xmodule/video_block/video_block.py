@@ -696,7 +696,7 @@ class _BuiltInVideoBlock(
         youtube_string = create_youtube_string(self)
         if youtube_string:
             xml.set('youtube', str(youtube_string))
-        xml.set('url_name', self.url_name)
+        xml.set('url_name', self.usage_key.block_id)
         attrs = [
             ('display_name', self.display_name),
             ('show_captions', json.dumps(self.show_captions)),

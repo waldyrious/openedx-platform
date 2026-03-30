@@ -211,14 +211,17 @@ def toc_for_course(user, request, course, active_chapter, active_section, field_
                 if section.hide_from_toc:
                     continue
 
-                is_section_active = (chapter.url_name == active_chapter and section.url_name == active_section)
+                is_section_active = (
+                    chapter.usage_key.block_id == active_chapter
+                    and section.usage_key.block_id == active_section
+                )
                 if is_section_active:
                     found_active_section = True
 
                 section_context = {
                     # xss-lint: disable=python-deprecated-display-name
                     'display_name': section.display_name_with_default_escaped,
-                    'url_name': section.url_name,
+                    'url_name': section.usage_key.block_id,
                     'format': section.format if section.format is not None else '',
                     'due': section.due,
                     'active': is_section_active,
@@ -230,10 +233,10 @@ def toc_for_course(user, request, course, active_chapter, active_section, field_
                 if is_section_active:
                     if last_processed_section:
                         previous_of_active_section = last_processed_section.copy()
-                        previous_of_active_section['chapter_url_name'] = last_processed_chapter.url_name
+                        previous_of_active_section['chapter_url_name'] = last_processed_chapter.usage_key.block_id
                 elif found_active_section and not next_of_active_section:
                     next_of_active_section = section_context.copy()
-                    next_of_active_section['chapter_url_name'] = chapter.url_name
+                    next_of_active_section['chapter_url_name'] = chapter.usage_key.block_id
 
                 sections.append(section_context)
                 last_processed_section = section_context
@@ -243,9 +246,9 @@ def toc_for_course(user, request, course, active_chapter, active_section, field_
                 # xss-lint: disable=python-deprecated-display-name
                 'display_name': chapter.display_name_with_default_escaped,
                 'display_id': display_id,
-                'url_name': chapter.url_name,
+                'url_name': chapter.usage_key.block_id,
                 'sections': sections,
-                'active': chapter.url_name == active_chapter
+                'active': chapter.usage_key.block_id == active_chapter
             })
         return {
             'chapters': toc_chapters,

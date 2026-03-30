@@ -883,7 +883,7 @@ def get_course_syllabus_section(course, section_key):
         try:
             filesys = course.runtime.resources_fs
             # first look for a run-specific version
-            dirs = [path("syllabus") / course.url_name, path("syllabus")]
+            dirs = [path("syllabus") / course.usage_key.block_id, path("syllabus")]
             filepath = find_file(filesys, dirs, section_key + ".html")
             with filesys.open(filepath) as html_file:
                 return replace_static_urls(

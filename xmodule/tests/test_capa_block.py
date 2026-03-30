@@ -226,7 +226,9 @@ class ProblemBlockTest(unittest.TestCase):  # pylint: disable=too-many-public-me
 
         other_block = CapaFactory.create()
         assert block.get_score().raw_earned == 0
-        assert block.url_name != other_block.url_name, "Factory should be creating unique names for each problem"
+        assert (
+            block.usage_key.block_id != other_block.usage_key.block_id
+        ), "Factory should be creating unique names for each problem"
 
     def test_correct(self):
         """

@@ -321,7 +321,7 @@ class _BuiltinHtmlBlockMixin(  # lint-amnesty, pylint: disable=abstract-method
         '''
 
         # Write html to file, return an empty tag
-        pathname = name_to_pathname(self.url_name)
+        pathname = name_to_pathname(self.usage_key.block_id)
         filepath = '{category}/{pathname}.html'.format(
             category=self.category,
             pathname=pathname

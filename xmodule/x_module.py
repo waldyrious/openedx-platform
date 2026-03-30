@@ -347,15 +347,6 @@ class XModuleMixin(XModuleFields, XBlock):  # pylint: disable=too-many-public-me
         )
 
     @property
-    def url_name(self):
-        """
-        Return the URL-friendly name for this block.
-
-        Preferred forms for new code: `self.usage_key.block_id`
-        """
-        return self.usage_key.block_id
-
-    @property
     def display_name_with_default(self):
         """
         Return a display name for the module: use display_name if defined in
@@ -1552,7 +1543,7 @@ class ModuleStoreRuntime(_MetricsMixin, _ConfigurableFragmentWrapper, _ModuleSys
     def add_block_as_child_node(self, block, node):
         """Append the block’s XML to the given parent XML node."""
         child = etree.SubElement(node, block.category)
-        child.set("url_name", block.url_name)
+        child.set("url_name", block.usage_key.block_id)
         block.add_xml_to_node(child)
 
     def publish(self, block, event_type, event_data):

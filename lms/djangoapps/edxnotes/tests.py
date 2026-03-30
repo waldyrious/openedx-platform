@@ -244,8 +244,8 @@ class EdxNotesHelpersTest(ModuleStoreTestCase):
         """
         return reverse('courseware_position', kwargs={
             'course_id': course.id,
-            'section': chapter.url_name,
-            'subsection': section.url_name,
+            'section': chapter.usage_key.block_id,
+            'subsection': section.usage_key.block_id,
             'position': position,
         })
 
@@ -830,7 +830,7 @@ class EdxNotesHelpersTest(ModuleStoreTestCase):
         mock_course_block = MagicMock(id=self.course.id, position=3)
 
         mock_section = MagicMock()
-        mock_section.url_name = 'section_url_name'
+        mock_section.usage_key.block_id = 'section_url_name'
         mock_section.display_name_with_default = 'Test Chapter Display Name'
 
         mock_course_block.get_children.return_value = [mock_section]
@@ -856,11 +856,11 @@ class EdxNotesHelpersTest(ModuleStoreTestCase):
         mock_course_block = MagicMock(id=self.course.id, position=None)
 
         mock_section = MagicMock()
-        mock_section.url_name = 'section_url_name'
+        mock_section.usage_key.block_id = 'section_url_name'
         mock_course_block.get_children.return_value = [mock_section]
 
         mock_subsection = MagicMock()
-        mock_subsection.url_name = 'subsection_url_name'
+        mock_subsection.usage_key.block_id = 'subsection_url_name'
         mock_subsection.display_name_with_default = 'Test Section Display Name'
 
         mock_section.get_children.return_value = [mock_subsection]

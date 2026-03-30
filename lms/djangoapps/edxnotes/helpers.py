@@ -417,7 +417,7 @@ def get_course_position(course_block):
         log.debug("No section found when loading current position in course")
         return None
 
-    urlargs['section'] = section.url_name
+    urlargs['section'] = section.usage_key.block_id
     if course_block.position is not None:
         return {
             'display_name': Text(section.display_name_with_default),
@@ -430,7 +430,7 @@ def get_course_position(course_block):
         log.debug("No subsection found when loading current position in course")
         return None
 
-    urlargs['subsection'] = subsection.url_name
+    urlargs['subsection'] = subsection.usage_key.block_id
     return {
         'display_name': Text(subsection.display_name_with_default),
         'url': reverse('courseware_subsection', kwargs=urlargs)
