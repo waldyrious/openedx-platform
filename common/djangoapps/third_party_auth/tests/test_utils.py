@@ -18,12 +18,12 @@ from common.djangoapps.third_party_auth.utils import (
     is_enterprise_customer_user,
     is_oauth_provider,
     parse_metadata_xml,
-    user_exists,
+    user_exists
 )
 from openedx.core.djangolib.testing.utils import skip_unless_lms
 from openedx.features.enterprise_support.tests.factories import (
     EnterpriseCustomerIdentityProviderFactory,
-    EnterpriseCustomerUserFactory,
+    EnterpriseCustomerUserFactory
 )
 
 
@@ -214,42 +214,61 @@ class TestCreateOrUpdateBulkSAMLProviderData(TestCase):
 
     def test_creates_new_record(self):
         result = create_or_update_bulk_saml_provider_data(
-            'http://entity1', ['pubkey1'], 'https://sso.example.com', None,
+            'http://entity1', ['pubkey1'],
+            'https://sso.example.com', None,
         )
         assert result is True
-        assert SAMLProviderData.objects.filter(entity_id='http://entity1', public_key='pubkey1').exists()
+        assert SAMLProviderData.objects.filter(
+            entity_id='http://entity1', public_key='pubkey1',
+        ).exists()
 
     def test_updates_existing_record(self):
         create_or_update_bulk_saml_provider_data(
-            'http://entity1', ['pubkey1'], 'https://sso.example.com', None,
+            'http://entity1', ['pubkey1'],
+            'https://sso.example.com', None,
         )
         result = create_or_update_bulk_saml_provider_data(
-            'http://entity1', ['pubkey1'], 'https://sso2.example.com', None,
+            'http://entity1', ['pubkey1'],
+            'https://sso2.example.com', None,
         )
         assert result is False
-        data = SAMLProviderData.objects.get(entity_id='http://entity1', public_key='pubkey1')
+        data = SAMLProviderData.objects.get(
+            entity_id='http://entity1', public_key='pubkey1',
+        )
         assert data.sso_url == 'https://sso2.example.com'
 
     def test_bulk_updates_multiple_existing(self):
         from django.utils.timezone import now
         SAMLProviderData.objects.create(
-            entity_id='http://entity1', public_key='pubkey1',
-            sso_url='https://old.example.com', fetched_at=now(),
+            entity_id='http://entity1',
+            public_key='pubkey1',
+            sso_url='https://old.example.com',
+            fetched_at=now(),
         )
         SAMLProviderData.objects.create(
-            entity_id='http://entity1', public_key='pubkey1',
-            sso_url='https://old.example.com', fetched_at=now(),
+            entity_id='http://entity1',
+            public_key='pubkey1',
+            sso_url='https://old.example.com',
+            fetched_at=now(),
         )
         result = create_or_update_bulk_saml_provider_data(
-            'http://entity1', ['pubkey1'], 'https://new.example.com', None,
+            'http://entity1', ['pubkey1'],
+            'https://new.example.com', None,
         )
         assert result is True
-        for obj in SAMLProviderData.objects.filter(entity_id='http://entity1', public_key='pubkey1'):
+        qs = SAMLProviderData.objects.filter(
+            entity_id='http://entity1', public_key='pubkey1',
+        )
+        for obj in qs:
             assert obj.sso_url == 'https://new.example.com'
 
     def test_multiple_keys(self):
         result = create_or_update_bulk_saml_provider_data(
-            'http://entity1', ['key1', 'key2'], 'https://sso.example.com', None,
+            'http://entity1', ['key1', 'key2'],
+            'https://sso.example.com', None,
         )
         assert result is True
-        assert SAMLProviderData.objects.filter(entity_id='http://entity1').count() == 2
+        count = SAMLProviderData.objects.filter(
+            entity_id='http://entity1',
+        ).count()
+        assert count == 2
