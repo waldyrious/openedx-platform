@@ -21,6 +21,7 @@ from sortedcontainers import SortedKeyList
 from xblock.core import XBlock
 from xblock.plugin import default_select
 from xblock.runtime import Mixologist
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 
 # The below import is not used within this module, but ir is still needed becuase
 # other modules are imorting EdxJSONEncoder from here
@@ -1311,7 +1312,8 @@ class ModuleStoreWriteBase(ModuleStoreReadBase, ModuleStoreWrite):
         if fields is None:
             return result
         classes = XBlock.load_class(category, default=self.default_class)
-        cls = self.mixologist.mix(classes)
+        mixins = filter_mixins_for_standard_xblocks(classes, mixologist=self.mixologist)
+        cls = Mixologist(mixins).mix(classes)
         for field_name, value in fields.items():
             field = getattr(cls, field_name)
             result[field.scope][field_name] = value

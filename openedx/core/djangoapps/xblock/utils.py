@@ -4,6 +4,7 @@ Useful helper methods related to the XBlock runtime
 
 import hashlib
 import hmac
+import inspect
 import math
 import time
 from uuid import uuid4
@@ -14,6 +15,7 @@ from django.conf import settings
 from openedx.core.djangoapps.xblock.apps import get_xblock_app_config
 
 from .data import AuthoredDataMode, LatestVersion
+from xmodule.x_module import XModuleMixin
 
 
 def get_secure_token_for_xblock_handler(user_id, block_key_str, time_idx=0):
@@ -186,3 +188,34 @@ def get_auto_latest_version(version: int | LatestVersion) -> int | LatestVersion
             else LatestVersion.PUBLISHED
         )
     return version
+
+
+def filter_mixins_for_standard_xblocks(xblock_class, mixins=None, mixologist=None):
+    """
+    Filter legacy mixins for standard-compliant extracted XBlocks.
+
+    If the fully-qualified class name of ``xblock_class`` is listed in
+    ``settings.STANDARD_COMPLIANT_XBLOCKS``, then we remove ``XModuleMixin`` from the
+    provided ``mixins``.
+    """
+    if mixins is None:
+        mixins = ()
+    if mixologist is not None:
+        mixins = getattr(mixologist, "_mixins", mixins)
+    if not xblock_class:
+        return mixins
+
+    full_class_name = f"{xblock_class.__module__}.{xblock_class.__name__}"
+
+    if full_class_name not in getattr(settings, "STANDARD_COMPLIANT_XBLOCKS", ()):
+        return mixins
+
+    filtered_mixins = tuple(m for m in mixins if m is not XModuleMixin)
+
+    if XModuleMixin not in filtered_mixins:
+        caller = None
+        frame = inspect.currentframe()
+        if frame is not None and frame.f_back is not None:
+            caller = f"{frame.f_back.f_code.co_filename}:{frame.f_back.f_lineno} ({frame.f_back.f_code.co_name})"
+        print(f"XModuleMixin removed/not-added in {full_class_name} mixins: {filtered_mixins} | caller={caller}")
+    return filtered_mixins

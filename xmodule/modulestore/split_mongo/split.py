@@ -75,6 +75,9 @@ from opaque_keys.edx.locator import (
 from path import Path as path
 from xblock.core import XBlock
 from xblock.fields import Reference, ReferenceList, ReferenceValueDict, Scope
+from xblock.runtime import Mixologist
+
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 
 from xmodule.assetstore import AssetMetadata
 from xmodule.course_block import CourseSummary
@@ -2925,7 +2928,8 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
             except KeyError:
                 return course_key.make_usage_key('unknown', block_key.id)
 
-        xblock_class = self.mixologist.mix(xblock_class)
+        mixins = filter_mixins_for_standard_xblocks(xblock_class, mixologist=self.mixologist)
+        xblock_class = Mixologist(mixins).mix(xblock_class)
         # Make a shallow copy, so that we aren't manipulating a cached field dictionary
         output_fields = dict(jsonfields)
         for field_name, value in output_fields.items():
@@ -3030,7 +3034,8 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         """
         assert isinstance(fields, dict)
         xblock_class = XBlock.load_class(category, self.default_class)
-        xblock_class = self.mixologist.mix(xblock_class)
+        mixins = filter_mixins_for_standard_xblocks(xblock_class, mixologist=self.mixologist)
+        xblock_class = Mixologist(mixins).mix(xblock_class)
 
         def reference_block_id(reference):
             """

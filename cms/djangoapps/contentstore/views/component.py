@@ -37,6 +37,7 @@ from cms.djangoapps.contentstore.toggles import (
 )
 from cms.djangoapps.contentstore.xblock_storage_handlers.view_handlers import load_services_for_studio
 from openedx.core.lib.xblock_utils import get_aside_from_xblock, is_xblock_aside
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 from openedx.core.djangoapps.discussions.models import DiscussionsConfiguration
 from openedx.core.djangoapps.content_tagging.api import get_object_tags
 from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
@@ -132,7 +133,8 @@ def _load_mixed_class(category):
         return None
 
     component_class = XBlock.load_class(category)
-    mixologist = Mixologist(settings.XBLOCK_MIXINS)
+    mixins = filter_mixins_for_standard_xblocks(component_class, settings.XBLOCK_MIXINS)
+    mixologist = Mixologist(mixins)
     return mixologist.mix(component_class)
 
 

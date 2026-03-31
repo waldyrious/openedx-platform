@@ -29,7 +29,9 @@ from opaque_keys.edx.locator import BlockUsageLocator, CourseLocator, LibraryLoc
 from path import Path as path
 from xblock.exceptions import InvalidScopeError
 from xblock.fields import Reference, ReferenceList, ReferenceValueDict, Scope, ScopeIds
-from xblock.runtime import KvsFieldData
+from xblock.runtime import KvsFieldData, Mixologist
+
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 
 from xmodule.assetstore import AssetMetadata, CourseAssetsFromStorage
 from xmodule.course_block import CourseSummary
@@ -229,7 +231,8 @@ class OldModuleStoreRuntime(ModuleStoreRuntime, EditInfoRuntimeMixin):  # pylint
                 if isinstance(data, str):
                     data = {'data': data}
 
-                mixed_class = self.mixologist.mix(class_)
+                mixins = filter_mixins_for_standard_xblocks(class_, mixologist=self.mixologist)
+                mixed_class = Mixologist(mixins).mix(class_)
                 if data:  # empty or None means no work
                     data = self._convert_reference_fields_to_keys(mixed_class, location.course_key, data)
                 metadata = self._convert_reference_fields_to_keys(mixed_class, location.course_key, metadata)

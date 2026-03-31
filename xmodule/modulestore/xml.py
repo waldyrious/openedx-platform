@@ -26,7 +26,9 @@ from xblock.fields import (
     ReferenceValueDict,
     ScopeIds,
 )
-from xblock.runtime import DictKeyValueStore
+from xblock.runtime import DictKeyValueStore, Mixologist
+
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 
 from common.djangoapps.util.monitoring import monitor_import_failure
 from xmodule.error_block import ErrorBlock
@@ -100,7 +102,9 @@ class XMLParsingModuleStoreRuntime(ModuleStoreRuntime):
         usage_id = id_generator.create_usage(def_id)
 
         keys = ScopeIds(None, block_type, def_id, usage_id)
-        block_class = self.mixologist.mix(self.load_block_type(block_type))
+        base_class = self.load_block_type(block_type)
+        mixins = filter_mixins_for_standard_xblocks(base_class, mixologist=self.mixologist)
+        block_class = Mixologist(mixins).mix(base_class)
 
         aside_children = self.parse_asides(node, def_id, usage_id, id_generator)
         asides_tags = [x.tag for x in aside_children]

@@ -2030,6 +2030,20 @@ XBLOCK_MIXINS = (
     EditInfoMixin,
 )
 
+# .. setting_name: STANDARD_COMPLIANT_XBLOCKS
+# .. setting_default: ()
+# .. setting_description: Tuple of fully-qualified XBlock class names that conform to the standard XBlock
+#     interface. For these XBlocks, the platform will not inject legacy mixins like XModuleMixin when
+#     instantiating them via the various XBlock runtimes.
+STANDARD_COMPLIANT_XBLOCKS = (
+    "xblocks_contrib.video.video.VideoBlock",
+    "xblocks_contrib.word_cloud.word_cloud.WordCloudBlock",
+    "xblocks_contrib.discussion.discussion.DiscussionXBlock",
+    "xblocks_contrib.poll.poll.PollBlock",
+    "xblocks_contrib.html.html.HtmlBlockMixin",
+    "xblocks_contrib.annotatable.annotatable.AnnotatableBlock",
+)
+
 ######################## Built-in Blocks Extraction ########################
 
 # The following Django settings flags have been introduced temporarily to facilitate

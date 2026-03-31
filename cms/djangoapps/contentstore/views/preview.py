@@ -38,6 +38,7 @@ from common.djangoapps.static_replace.wrapper import replace_urls_wrapper
 from common.djangoapps.student.models import anonymous_id_for_user
 from common.djangoapps.edxmako.shortcuts import render_to_string
 from common.djangoapps.edxmako.services import MakoService
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 from common.djangoapps.xblock_django.user_service import DjangoXBlockUserService
 from lms.djangoapps.lms_xblock.field_data import LmsFieldData
 from openedx.core.lib.license import wrap_with_license
@@ -234,7 +235,7 @@ def _prepare_runtime_for_preview(request, block):
     }
 
     block.runtime.get_block_for_descriptor = partial(_load_preview_block, request)
-    block.runtime.mixins = settings.XBLOCK_MIXINS
+    block.runtime.mixins = filter_mixins_for_standard_xblocks(block.__class__, settings.XBLOCK_MIXINS)
 
     # Set up functions to modify the fragment produced by student_view
     block.runtime.wrappers = wrappers

@@ -20,6 +20,7 @@ from xblock.core import XBlock
 from xblock.exceptions import NoSuchUsage
 from xblock.fields import Field, Scope, ScopeIds
 from xblock.field_data import FieldData
+from xblock.runtime import Mixologist
 
 from openedx.core.djangoapps.xblock.api import get_xblock_app_config
 from openedx.core.lib.xblock_serializer.api import serialize_modulestore_block_for_openedx_content
@@ -28,6 +29,7 @@ from ..data import AuthoredDataMode, LatestVersion
 from ..utils import get_auto_latest_version
 from ..learning_context.manager import get_learning_context_impl
 from .runtime import XBlockRuntime
+from openedx.core.djangoapps.xblock.utils import filter_mixins_for_standard_xblocks
 
 
 log = logging.getLogger(__name__)
@@ -203,7 +205,9 @@ class OpenedXContentRuntime(XBlockRuntime):
         if xml_node.get("url_name", None):
             log.warning("XBlock at %s should not specify an old-style url_name attribute.", usage_key)
 
-        block_class = self.mixologist.mix(self.load_block_type(block_type))
+        base_class = self.load_block_type(block_type)
+        mixins = filter_mixins_for_standard_xblocks(base_class, mixologist=self.mixologist)
+        block_class = Mixologist(mixins).mix(base_class)
 
         if hasattr(block_class, 'parse_xml_new_runtime'):
             # This is a (former) XModule with messy XML parsing code; let its parse_xml() method continue to work
