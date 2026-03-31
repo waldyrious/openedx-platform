@@ -104,6 +104,7 @@ def js_escaped_string(string_for_js):
         unicode.  Returns empty string if argument is None.
 
     """
+    
     if string_for_js is None:
         string_for_js = ""
     string_for_js = decode.utf8(string_for_js)

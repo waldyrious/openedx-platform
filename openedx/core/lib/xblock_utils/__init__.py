@@ -144,7 +144,7 @@ def wrap_xblock(
     template_context = {
         'content': block.display_name if display_name_only else frag.content,
         'classes': css_classes,
-        'display_name': block.display_name_with_default_escaped,  # xss-lint: disable=python-deprecated-display-name
+        'display_name': block.display_name_with_default,  # xss-lint: disable=python-deprecated-display-name
         'data_attributes': ' '.join(f'data-{markupsafe.escape(key)}="{markupsafe.escape(value)}"'
                                     for key, value in data.items()),
     }

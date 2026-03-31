@@ -79,6 +79,7 @@ class Template:
         self._add_core_context(context_dictionary)
         self._evaluate_lazy_csrf_tokens(context_dictionary)
 
+        print(f"Farhan here: context_dictionary: {context_dictionary}")
         return self.mako_template.render_unicode(**context_dictionary)
 
     @staticmethod

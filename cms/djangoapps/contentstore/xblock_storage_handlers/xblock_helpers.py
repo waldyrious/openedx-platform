@@ -35,7 +35,7 @@ def get_tags_count(xblock: XBlock, include_children=False) -> dict[str, int]:
 
     if include_children:
         children = xblock.get_children()
-        child_usage_keys = [str(child.location) for child in children]
+        child_usage_keys = [str(child.usage_key) for child in children]
         query_list.extend(child_usage_keys)
 
     tags_count_query = ",".join(query_list)

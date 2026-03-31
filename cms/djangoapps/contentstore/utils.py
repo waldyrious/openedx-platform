@@ -813,12 +813,12 @@ def get_user_partition_info(xblock, schemes=None, course=None):
     ]
 
     """
-    course = course or modulestore().get_course(xblock.location.course_key)
+    course = course or modulestore().get_course(xblock.context_key)
 
     if course is None:
         log.warning(
             "Could not find course %s to retrieve user partition information",
-            xblock.location.course_key
+            xblock.context_key
         )
         return []
 
@@ -2376,7 +2376,7 @@ def get_xblock_render_error(request, xblock):
             "reorderable_items": set(),
             "paging": None,
             "force_render": None,
-            "item_url": "/container/{block.location}",
+            "item_url": "/container/{block.usage_key}",
             "tags_count_map": {},
         }
 
