@@ -2473,7 +2473,6 @@ ACCOUNT_VISIBILITY_CONFIGURATION["admin_fields"] = (
         "secondary_email_enabled",
         "year_of_birth",
         "phone_number",
-        "activation_key",
         "pending_name_change",
     ]
 )
@@ -2845,6 +2844,10 @@ CATALOG_MICROFRONTEND_URL = None
 # .. setting_default: None
 # .. setting_description: Base URL of the micro-frontend-based instructor app.
 INSTRUCTOR_MICROFRONTEND_URL = None
+# .. setting_name: COMMUNICATIONS_MICROFRONTEND_URL
+# .. setting_default: None
+# .. setting_description: Base URL of the micro-frontend-based communications app.
+COMMUNICATIONS_MICROFRONTEND_URL = None
 # .. setting_name: DISCUSSION_SPAM_URLS
 # .. setting_default: []
 # .. setting_description: Urls to filter from discussion content to avoid spam
