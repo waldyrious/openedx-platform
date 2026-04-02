@@ -15,7 +15,7 @@ from math import exp
 from zoneinfo import ZoneInfo
 
 
-DEFAULT_START_DATE = datetime(2030, 1, 1, tzinfo=ZoneInfo("UTC"))
+DEFAULT_START_DATE = datetime(2040, 1, 1, tzinfo=ZoneInfo("UTC"))
 
 """
 Default grading policy for a course run.
