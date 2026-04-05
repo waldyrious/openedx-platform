@@ -25,25 +25,16 @@ jobs:
           - "3.12"
         django-version:
           - "pinned"
-        # When updating the shards, remember to make the same changes in
-        # .github/workflows/unit-tests-gh-hosted.yml
         shard_name:
           - "lms-1"
           - "lms-2"
           - "lms-3"
           - "lms-4"
           - "lms-5"
-          - "lms-6"
-          - "openedx-1-with-lms"
-          - "openedx-2-with-lms"
-          - "openedx-1-with-cms"
-          - "openedx-2-with-cms"
+          - "shared-with-lms-1"
+          - "shared-with-lms-2"
+          - "shared-with-cms-1"
           - "cms-1"
-          - "cms-2"
-          - "common-with-lms"
-          - "common-with-cms"
-          - "xmodule-with-lms"
-          - "xmodule-with-cms"
         mongo-version:
           - "7.0"
         os-version:
